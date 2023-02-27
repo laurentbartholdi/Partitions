@@ -1,0 +1,484 @@
+################################################################
+# produce automata generating partitions
+
+module Partitions
+
+export ScanData, scan
+
+#using Debugger
+
+"""Maximal number of states to consider in product automata to detect periodicity
+"""
+
+using LightGraphs, Nauty, Distributed, GraphViz
+using URIs, HTTP
+using OpenFST
+using SymPy
+using LLLplus
+include("qplane.jl")
+
+const LASTGEN = 3 # could be 2 to force acceptance precisely on U transitions
+
+"""
+The main data structure: Automaton.x[i,s] is the transition from state i on input s∈{1,2}; value 0 indicates no transition. There is implicitly an edge from the (unrepresented) initial state to 1 labeled 1. State i is accepting with implicit transition 2 iff Automaton.x[i,3]=1. Implicitly the empty word is also accepted.
+Automaton.g is a copy of the data in the form of a Nauty graph.
+"""
+mutable struct Automaton{N}
+    x::Array{UInt8,2}
+    g::DenseNautyDiGraph
+
+    function Automaton{N}(arcs::Vector = []) where {N}
+        t = new(fill(UInt8(0),N,3))
+        t.g = graph(t)
+        for (i,j,s)=arcs
+            add_arc!(t,i,j,s)
+        end
+        t
+    end
+
+    Automaton{N}(x,g) where {N} = new(x,g)
+end
+Base.copy(t::Automaton) = typeof(t)(copy(t.x),copy(t.g))
+Base.:(==)(t::Automaton, u::Automaton) = t.x == u.x
+Base.hash(t::Automaton) = hash(t.x)
+
+partition(x::Automaton{N}) where {N} = (Vector{Cint}(0:3N-1),Vector{Cint}([1<i<N for _=1:3 for i=1:N]))
+
+    
+function add_arc!(t::Automaton{N}, i, j, s) where {N}
+    t.x[i,s]==0 || return false
+    t.x[i,s] = j
+
+    add_edge!(t.g,i+(s-1)*N,j+(s-1)*N)
+
+    s==2==LASTGEN && add_arc!(t, i, i, 3)
+
+    return true
+end
+
+function rem_arc!(t::Automaton{N}, i, j, s) where {N}
+    t.x[i,s] = 0
+
+    s==2==LASTGEN && rem_arc!(t, i, i, 3)
+    
+    rem_edge!(t.g,i+(s-1)*N,j+(s-1)*N)
+end
+
+function Base.show(io::IO, m::MIME"image/svg+xml", t::Automaton{N}) where {N}
+    buffer = IOBuffer()
+    println(buffer, """digraph Automaton {
+0 [shape=box,style=dashed]
+∞ [shape=box,style=dashed]
+0 -> 1 [color=blue,label=R]""")
+    for i=1:N
+        println(buffer, "$i [shape=box]")
+    end
+    for i=1:N, s=1:3
+        t.x[i,s]≠0 || continue
+            println(buffer,"$i -> $(s≤2 ? t.x[i,s] : '∞') [color=$(["blue","red","red"][s]),label=$("RUU"[s])]")
+    end
+    println(buffer, "}")
+    seekstart(buffer)
+    g = GraphViz.load(buffer)
+    show(io, m, g)
+end
+
+function Base.show(io::IO, t::Automaton{N}) where {N}
+    print(io,"[0R1")
+    for i=1:N, s=1:3
+        t.x[i,s]≠0 || continue
+        print(io, " ", i, "RUU"[s], s≤2 ? t.x[i,s] : '∞')
+    end
+    print(io,"]")
+end
+
+"""
+Convert a table to a graph, for canonization by Nauty
+"""
+function graph(t::Automaton{N}) where {N}
+    g = DenseNautyDiGraph(3N)
+    for i=1:N
+        add_edge!(g,i,i+N)
+        add_edge!(g,i+N,i+2N)
+        for s=1:3
+            t.x[i,s]≠0 && add_edge!(g,i+(s-1)*N,t.x[i,s]+(s-1)*N)
+        end
+    end
+    g
+end
+const nautyopt = Nauty.DEFAULTOPTIONS_DIGRAPH()
+nautyopt.defaultptn = 0
+nautyopt.getcanon = 1
+
+################################################################
+# detect if automaton is minimal.
+
+# count number of states reachable from "state" and not in "seen"
+function reachable(t,seen,state)
+    seen[state] && return 0
+    seen[state] = true
+    count = 1
+    for s=1:2
+        t.x[state,s]≠0 && (count += reachable(t,seen,t.x[state,s]))
+    end
+    count
+end
+
+# test if "state" leads to the accepting state
+function coreachable(t,seen,state)
+    seen[state] && return false # in loop
+    seen[state] = true
+    t.x[state,3]≠0 && return true
+    for s=1:2
+        t.x[state,s]≠0 && coreachable(t,seen,t.x[state,s]) && return true
+    end
+    return false
+end
+
+function collapsible(t::Automaton,seen,i,j)
+    seen[i,j] && return true
+    seen[i,j] = true
+    for s=1:3
+        (t.x[i,s]==0) ≠ (t.x[j,s]==0) && return false
+    end
+    c = true
+    for s=1:2
+        c &= (t.x[i,s]==0 || collapsible(t,seen,t.x[i,s],t.x[j,s]))
+    end
+    c
+end
+
+function minimal(t::Automaton{N}) where {N}
+    # if there's a state with no output, NO
+    for i=1:N
+        if t.x[i,1]==t.x[i,2]==t.x[i,3]==0
+            return false
+        end
+    end
+    
+    # if there's an unreachable state, NO
+    reachable(t,falses(N),1) < N && return false
+
+    # if there's a state that doesn't go to accept, NO
+    for i=1:N
+        coreachable(t,falses(N),i) || return false
+    end
+    
+    # if two states act in the same way, NO
+    for i=1:N, j=i+1:N
+        collapsible(t,falses(N,N),i,j) && return false
+    end
+    
+    true
+end
+
+################################################################
+# convert to FST, compute reverse (flip of partition)
+const alphabet = Dict(:ϵ => 0, :R => 1, :U => 2)
+function fst(t::Automaton{N}) where {N}
+    StdVectorFst(0,[(0,1,:R),((i,Int(t.x[i,s]),[:R,:U][s]) for i=1:N for s=1:2 if t.x[i,s]≠0)...,((i,N+1,:U) for i=1:N if t.x[i,3]≠0)...],[0,N+1],alphabet)
+end
+function automaton(t::StdVectorFst)
+    (init, arcs, final) = unpack(t |> determinize |> OpenFST.canonize!)
+    @assert init == 0
+    @assert count(a[1]==0 for a=arcs)==1
+    @assert count(==((0,1,:R)),arcs)==1
+    @assert all(p->(p[2]∈final)≤(p[3]==:U),arcs)
+    prefinal = [i for (i,j,s)=arcs if s==:U && j∈final]
+    @info prefinal
+    M = numstates(t)
+    Automaton{M-1}([((i,j,s==:R ? 1 : 2) for (i,j,s)=arcs if i≠0)...,((i,i,3) for (i,j,s)=arcs if s==:U && j∈final)...])
+end
+function reverse(t::Automaton{N}) where {N}
+    automaton(fst(t * StdVectorFst(0,[(0,0,:R,:U),(0,0,:U,:R)],[0],alphabet)) |> reverse |> rmepsilon!)
+end
+const flipRU = StdVectorFst(0,[(0,0,:R,:U),(0,0,:U,:R)],[0],alphabet)
+    
+################################################################
+# filter interesting terms by their characteristic polynomial
+function charpoly(t::Automaton{N}, x) where {N}
+    m = zeros(Int,N,N)
+    for i=1:N, s=1:2
+        t.x[i,s]≠0 && (m[i,t.x[i,s]] += 1)
+    end
+    sympy.Matrix(m).charpoly(x).as_expr()
+end
+
+function degrees(t::Automaton)
+    x = sympy.Symbol("x")
+    d = Int[]
+    for (f,n)=sympy.factor_list(charpoly(t,x))[2]
+        for _=1:convert(Int,n)
+            push!(d,sympy.degree(f))
+        end
+    end
+    d
+end
+
+# represent a series as a product of pochhammers
+function series2product(s::Vector)
+    s = copy(s)
+    p = Int[]
+    for i=1:length(s)-1
+        push!(p,s[i+1])
+        s[i+1:end] -= s[i+1]*s[1:end-i]
+    end
+    p
+end
+
+# find number of Pochhammer symbols needed for p. Symbol (a*q^i; q^k) is weighted k.
+function product2pochhammer(p::Vector{T},maxi=length(p)÷2) where {T}
+    n = length(p)
+    nc = maxi*(maxi-1)÷2
+    mat = zeros(T,n+nc+1,1+nc)
+    mat[1:n,1] = 1000p
+    mat[n+nc+1,1] = 1
+    c = 1
+    indices = Tuple{Int,Int}[]
+    for i=1:maxi, j=1:i-1
+        mat[1:n,c+1] = [1000*Int(k%i == j) for k=1:n]
+        mat[n+c,c+1] = 3(maxi+i)+j
+        push!(indices,(i,j))
+        c += 1
+    end
+    lmat,_,_ = lll(mat)
+    ps = Tuple{Int,Int,Int}[]
+    k = 1; while lmat[n+nc+1,k]==0
+        k += 1
+        k > size(lmat,2) && return :fail
+    end
+    for i=1:n
+        lmat[i,k]≠0 && return :fail
+    end
+    for c=1:nc
+        if lmat[n+c,k]≠0
+            (i,j) = indices[c]
+            push!(ps,(-lmat[n+c,k]/mat[n+c,c+1]/lmat[n+nc+1,k],j,i))
+        end
+    end
+    ps  
+end
+
+series2pochhammer(s) = series2product(s) |> product2pochhammer
+
+function mat2fpmzmat(m::Matrix)
+    fpmzm = fmpz_mat(size(m)...)
+    for i=1:size(m,1), j=1:size(m,2)
+        fpmzm[i,j] = m[i,j]
+    end
+    fpmzm
+end
+
+################################################################
+# compute growth series of automaton up to given area.
+function growthseries(t::Automaton{N}, area, counts, x, state) where {N}
+    area ≥ x || return counts
+    if t.x[state,1]≠0
+        growthseries(t, area, counts, x+1, t.x[state,1])
+    end
+    if t.x[state,2]≠0
+        growthseries(t, area-x, counts, x, t.x[state,2])
+    end
+    if t.x[state,3]≠0
+        counts[area-x+1] += 1
+    end
+    counts
+end
+
+growthseries(t::Automaton, area) = [1; reverse!(growthseries(t, area, zeros(Int,area), 1, 1))...]
+
+# algebra representation of automaton
+
+const QR = QuantumPlane.Fraction(QuantumPlane.R)
+const QU = QuantumPlane.Fraction(QuantumPlane.U)
+
+function quantumseries(t::Automaton{N}; order = 1:N) where N
+    sort(order)==1:N || error("$order does not contain all states 1:$N")
+
+    mat = fill(zero(QR),N+2,N+2)
+    mat[1,N+2] += one(QR)
+    mat[1,2] = QR
+    for i=1:N, c=1:3
+        if t.x[i,c]≠0
+            mat[i+1,c==3 ? N+2 : t.x[i,c]+1] += [QR,QU,QU][c]
+        end
+    end
+    
+    for i=1:N # eliminate state order[i]
+        si = order[i]+1
+        loopi = inv(one(QR)-mat[si,si])
+        for j=1:N+2, k=1:N+2
+            (j-1∈order[1:i] || k-1∈order[1:i]) && continue
+            @info i,j,k, mat[j,si], loopi, mat[si,k]
+            mat[j,k] += mat[j,si] * loopi * mat[si,k]
+        end
+    end
+    mat[1,N+2]
+end
+
+euler1 = Automaton{2}([(1,1,2),(1,2,1),(2,1,1),(1,1,3)])
+euler2 = Automaton{2}([(1,1,1),(1,2,2),(2,1,1),(1,1,3)])
+euler3 = Automaton{4}([(1,2,1),(1,4,2),(2,1,1),(2,2,2),(3,4,1),(3,4,2),(4,3,1),((i,i,3) for i=[1,2,3])...])
+euler4 = Automaton{5}([(1,3,1),(1,5,2),(2,1,1),(2,2,2),(3,4,1),(3,2,2),(4,5,2),(5,2,1),(1,1,3),(2,2,3),(3,3,3),(4,4,3)])
+
+δ = quantumseries(euler2,order=[2,1])-quantumseries(euler1,order=[2,1])
+
+function simplify(x,side)
+    side∈[:left,:right] || error("$side should be :left or :right")
+
+    if side==:left
+        denominator(x) \ divrem(numerator(x),:right,:R).remainder
+    else
+        divrem(Olga.rnumerator(x),:left,:U).remainder / Olga.rdenominator(x)
+    end
+end
+
+################################################################
+# enumeration of automata, now.
+mutable struct ScanData
+    level::Int # at which level in the recursion are we?
+    split::Int # at which level do we separate between workers?
+    numtables::Int # how many tables did we see at split level?
+    dowork::Function # how do we determine, from numtables, whether to work?
+    area::Int # how far we compute the areas
+    debug::Bool
+end
+ScanData(area::Int) = ScanData(-2,-1,0,x->true,area,false)
+
+"""
+Canonical enumeration of tables.
+
+Loosely based on McKay, "Isomorph-free exhaustive generation", DOI:10.1006/jagm.1997.0898
+
+x is an empty table, to be filled in recursively
+sd is a bunch of parameters determining when to split the recursion across cores, and how deep to search for periodicity / finiteness
+candidates is the array to be filled in with the results
+saveall specifies whether all periodicity tests should be saved, or not
+"""
+function scan(x::Automaton{N},sd::ScanData = ScanData(30),candidates::Vector{Pair{Automaton{N},Any}} = Pair{Automaton{N},Any}[],saveall = true) where {N}
+    if sd.level==sd.split
+        sd.numtables += 1
+        sd.dowork(sd.numtables) || return candidates
+    end
+
+    minimal(x) && push!(candidates, copy(x)=>growthseries(x,sd.area))
+
+    sd.debug && @info "$(repeat(".. ",3-sd.level)) Main scan, $x"
+
+    sd.level == 0 && return candidates
+    
+    sd.level -= 1
+
+    c = DenseNautyDiGraph[]
+
+    for i=1:N, j=1:N, s=1:LASTGEN # add an edge from i to j labeled s
+        s==3 && i≠j && continue # color 3 is just accepting
+        add_arc!(x,i,j,s) || continue
+
+        (_,orbits,lab,canong) = Nauty.densenauty(x.g, nautyopt, partition(x))
+
+        # we now have a canonical labelling of g.
+        # orbits[v] is the orbit representative of vertex v
+        # lab[v]=w means that vertex w goes to position v in canong
+
+        # find the "canonical edge" of canong; we take the first
+        canono = -1
+        for v=1:3N, w=1:3N
+            if has_edge(canong,v,w) && lab[v]÷N == lab[w]÷N
+                canono = orbits[lab[v]+1] # +1 because of C conventions in Nauty
+                break
+            end
+        end
+        sd.debug && @info "$(repeat(".. ",3-sd.level)) Trying $i$("RUU"[s])$(s==3 ? "∞" : j), canon=$canonedge, orbits=$orbits, lab=$lab"
+        # if the canonical edge is in the same orbit as the added edge, proceed
+        if canono == orbits[i+(s-1)*N] && all(x->x≠canong,c)
+            push!(c,canong)
+            scan(x,sd,candidates,saveall)
+        end
+
+        rem_arc!(x,i,j,s)
+    end
+
+    sd.level += 1
+    sd.debug && @info "$(repeat(".. ",3-sd.level)) Out of main scan $x"
+    return candidates
+end
+
+function cluster(scanresult::Vector{Pair{A,B}}) where {A,B}
+    sort!(scanresult,lt=(x,y)->x.second<y.second)
+    c = Pair{Vector{A},B}[]
+    for (a,b)=scanresult
+        if isempty(c) || c[end].second≠b
+            push!(c,[a]=>b)
+        else
+            push!(c[end].first,a)
+        end
+    end
+    c
+end
+
+function examine(row)
+    for g=row.first
+        display(g)
+    end
+    println(row.second)
+    html = String(HTTP.request("GET",string(URI(URI("https://oeis.org/search"); query=Dict("q"=>join(row.second |> string))))))
+    htmlbuf = IOBuffer(html)
+    mdbuf = IOBuffer()
+    run(pipeline(`pandoc --from html --to markdown`, stdin=htmlbuf, stdout=mdbuf))
+    seekstart(mdbuf)
+    md = readlines(mdbuf)
+    start = 1; while start < length(md) && match(r"^\[A.*\]\(/A.*\)$",md[start])==nothing start += 1 end
+    display("text/markdown", join(md[start:end],"\n"))
+end
+
+function parallel_scan(N,workers = nworkers(), area = 30)
+    refs = [@spawnat :any scan(Automaton{N}(),ScanData(-2,-4,0,x->(x%workers==i-1),area,false),Pair{Automaton{N},Any}[],true) for i=1:workers]
+
+    vcat(fetch.(refs)...)
+end
+
+""" in sage:
+Q.<q> = LaurentPolynomialRing(QQ)
+P.<U> = Q[]
+A.<R> = SkewPolynomialRing(P,P.hom([q*U]))
+
+from ore_algebra import *
+Q.<q> = QQ['q']
+P.<U> = Q.fraction_field()['U']
+A.<R> = OreAlgebra(P,('R',{U:q*U},{}))
+
+OPPOSITE:
+from ore_algebra import *
+Q.<q> = QQ['q']
+P.<R> = Q.fraction_field()['R']
+A.<U> = OreAlgebra(P,('U',{R:q*R},{}))
+
+QUO, REM = (U+R).quo_rem(U-R)
+L1 = A.random_element(5)
+L2 = A.random_element(5)
+LCM, M1, M2 = L1.xlclm(L2)
+LCM == M1*L1 == M2*L2
+
+pyimport("sage")
+pyimport("ore_algebra")
+
+example:
+[0R1 1R2 1U1 1U∞ 2R3 2U1 2U∞ 3R3 3U∞]
+series:
+((R - 1)*(q^2*U*R + q*U - 1)) \\ (q^3*U*R^2 + q*U*R - q*U - R + 1)
+
+[0R1 1R2 1U1 1U∞ 2R2 2U3 2U∞ 3R2 3U∞]
+series:
+((q^2*U*R + R - 1)*(q*U - 1)) \\ (q^4*U^2*R + q*U*R - q*U - R + 1)
+
+
+num den^-1 = x^-1 y: need x*num = y*den, llcm
+num^-1 den = x y^-1: need num*x = den*y, rlcm
+
+difference: 
+"""
+
+nothing
+
+end

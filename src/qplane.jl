@@ -1,0 +1,433 @@
+module QuantumPlane
+
+using Nemo, DataStructures, Test
+
+const run_tests = false
+
+export Polynomial, Fraction, 𝕢, R, U, simplify
+
+const (ℚ𝕢, 𝕢) = RationalFunctionField(QQ, "𝕢")
+const Scalar = typeof(𝕢)
+const Exponent = Tuple{Int,Int}
+
+"""Non-commutative polynomials in two variables U,R, with relation RU=qUR.
+Stored as priority queue, ranked by top degree and then U.
+"""
+struct Polynomial
+    d::Dict{Exponent,Scalar}
+    Polynomial(s) = new(Dict((i,j)=>c for ((i,j),c)=s if !iszero(c)))
+end
+
+function Polynomial(s::Symbol)
+    if s==:U
+        Polynomial(((1,0)=>one(𝕢),))
+    elseif s==:R
+        Polynomial(((0,1)=>one(𝕢),))
+    elseif s==:q
+        Polynomial(((0,0)=>𝕢,))
+    else
+        error("Invalid symbol $s")
+    end
+end
+Polynomial(x::Scalar) = Polynomial(((0,0)=>x,))
+Polynomial() = Polynomial(())
+Polynomial(x::Number) = Polynomial(one(𝕢)*x)
+
+const U = Polynomial(:U)
+const R = Polynomial(:R)
+
+const SUPERSCRIPT_DICT = Dict('0'=>'⁰','1'=>'¹','2'=>'²','3'=>'³','4'=>'⁴',
+                              '5'=>'⁵','6'=>'⁶','7'=>'⁷','8'=>'⁸','9'=>'⁹','-'=>'⁻')
+superscript_string(i) = prod(SUPERSCRIPT_DICT[c] for c∈string(i))
+
+function Base.show(io::IO, p::Polynomial)
+    first = true
+    for (i,j)=sort(collect(keys(p.d)),rev=true)
+        s = string(p.d[(i,j)])
+        isnum = all(c->c∈"0123456789-",s)
+        if first
+            first = false
+        else
+            if isnum && s[1]=='-'
+                print(io, " - ")
+                s = s[2:end]
+            else
+                print(io, " + ")
+            end
+        end
+        if isnum
+            if s=="-1" && (i,j)≠(0,0)
+                print(io, "-")
+            elseif s≠"1" || (i,j)==(0,0)
+                print(io, s)
+            end
+        else
+            print(io, "(",s,")")
+        end
+        if i≠0
+            print(io, "U")
+            if i≠1
+                print(io, superscript_string(i))
+            end
+        end
+        if j≠0
+            print(io, "R")
+            if j≠1
+                print(io, superscript_string(j))
+            end
+        end
+    end
+    first && print(io,"0")
+    io
+end
+
+Base.denominator(p::Polynomial) = lcm(denominator.(values(p.d))...,denominator(one(𝕢)))
+
+function Base.:+(p::Polynomial, q::Polynomial)
+    r = copy(p.d)
+    for (e,c)=q.d
+        r[e] = get(r,e,zero(c)) + c
+    end
+    Polynomial(r)
+end
+
+function Base.:-(p::Polynomial, q::Polynomial)
+    r = copy(p.d)
+    for (e,c)=q.d
+        r[e] = get(r,e,zero(c)) - c
+    end
+    Polynomial(r)
+end
+
+function Base.:-(p::Polynomial)
+    Polynomial(e=>-c for (e,c)=p.d)
+end
+
+function Base.:*(p::Polynomial, q::Polynomial)
+    r = Dict{Exponent,Scalar}()
+    for (e,c)=p.d, (f,d)=q.d
+        g = e.+f
+        r[g] = get(r,g,zero(c)) + c*d*𝕢^(e[2]*f[1])
+    end
+    Polynomial(r)
+end
+
+function Base.:*(p::Polynomial, x::Scalar)
+    Polynomial(e=>x*c for (e,c)=p.d)
+end
+
+function Base.:*(x::Scalar, p::Polynomial)
+    Polynomial(e=>x*c for (e,c)=p.d)
+end
+
+function Base.:^(p::Polynomial, i::Int)
+    if i<0
+        error("$i must be non-negative")
+    elseif i==0
+        one(p)
+    elseif i==1
+        p
+    elseif iseven(i)
+        (p*p)^(i÷2)
+    else
+        (p*p)^(i÷2)*p
+    end
+end
+
+Base.iszero(p::Polynomial) = isempty(p.d)
+Base.isone(p::Polynomial) = length(p.d)==1 && first(p.d)==((0,0)=>one(𝕢))
+
+Base.zero(::Polynomial) = Polynomial()
+Base.one(::Polynomial) = Polynomial(1)
+Base.zero(::Type{Polynomial}) = Polynomial()
+Base.one(::Type{Polynomial}) = Polynomial(1)
+
+Base.:(==)(p::Polynomial,q::Polynomial) = p.d==q.d
+Base.hash(p::Polynomial) = hash(p.d)
+
+Base.promote_rule(::Type{Polynomial},::Type{Scalar}) = Polynomial
+Base.promote_rule(::Type{Polynomial},::Type{Int}) = Polynomial
+Base.promote_rule(::Type{Polynomial},::Type{Rational}) = Polynomial
+Base.convert(::Type{Polynomial}, x::Number) = Polynomial(((0,0)=>one(𝕢)*x,))
+
+Base.:+(x::Polynomial, y) = +(promote(x,y)...)
+Base.:-(x::Polynomial, y) = -(promote(x,y)...)
+Base.:*(x::Polynomial, y) = *(promote(x,y)...)
+Base.:+(x, y::Polynomial) = +(promote(x,y)...)
+Base.:-(x, y::Polynomial) = -(promote(x,y)...)
+Base.:*(x, y::Polynomial) = *(promote(x,y)...)
+Base.:/(x::Polynomial, y::Scalar) = x*inv(y)
+
+topdegree(p::Polynomial) = peek(p.d).second
+
+"""Write x = q*y+r (if side==:left) or x = y*q+r (if side==:right), return (quotient=q,remainder=r).
+
+The leading monomial of y is computed with respect to max, and is cancelled as much as possible."""
+function Base.divrem(x::Polynomial, y::Polynomial, side::Symbol = :left, max = e->(e[1]+e[2],e[1]))
+    side∈[:left,:right] || error("$side should be :left or :right")
+    iszero(y) && throw("division by zero")
+
+    (y_max,y_e,y_c) = (nothing,nothing,nothing)
+    for (e,c)=y.d
+        new_max = max(e)
+        if y_max==nothing || new_max>y_max
+            (y_max,y_e,y_c) = (new_max,e,c)
+        end
+    end
+
+    q = Dict{Exponent,Scalar}()
+    r = copy(x.d)
+    r_keys = PriorityQueue{Exponent,typeof(y_max),Base.Order.ReverseOrdering}(Base.Order.Reverse,[e=>max(e) for (e,_)=r])
+    found = Some(nothing)
+    while found≠nothing
+        found = nothing
+        for (e,d)=r_keys
+            iszero(r[e]) && continue
+            (e[1]≥y_e[1] && e[2]≥y_e[2]) && (found = e; break)
+        end
+        found==nothing && break
+        shift = found.-y_e
+        s = r[found]//y_c*𝕢^(side==:left ? -shift[2]*y_e[1] : -shift[1]*y_e[2])
+        # subtract s*U^shift[1]*R^shift[2]*y or y*(...) from r
+        q[shift] = get(q,shift,zero(y_c)) + s
+        for (f,d)=y.d
+            g = f.+shift
+            r[g] = get(r,g,zero(d)) - s*𝕢^(side==:left ? shift[2]*f[1] : f[2]*shift[1])*d
+        end
+        while !isempty(r_keys) && iszero(r[peek(r_keys).first])
+            dequeue!(r_keys)
+        end
+    end
+    (quotient = Polynomial(q), remainder = Polynomial(r))
+end
+
+run_tests && @testset "Elementary polynomial operations" begin
+    @test U+R == R+U
+    @test 𝕢*U*R == R*U
+    @test iszero(U+R+(-U-R))
+    @test divrem(U+R,R+1,:left) == (quotient = one(U), remainder = U-1)
+    @test divrem(U+R,R+1,:right) == (quotient = one(U), remainder = U-1)
+    @test divrem(U*R,R+1,:left) == (quotient = U, remainder = -U)
+    @test divrem(U*R,R+1,:right) == (quotient = U/𝕢, remainder = -U/𝕢)
+end
+
+bidegree(x) = iszero(x) ? (0,0) : maximum.(zip(keys(x.d)...))
+
+"""Computes the common multiples of x,y on side∈[:left,:right] of degree at most degz
+"""
+function all_ore(x,y,degz::Vector{Int},side::Symbol=:left)
+    side∈[:left,:right] || error("$side must be :left or :right")
+
+    deg = Dict(:x=>bidegree(x), :y=>bidegree(y))
+    var = Dict(:x=>x, :y=>-y)
+    
+    rowbasis = [(i,j) for i=0:degz[1], j=0:degz[2]]
+    rowbasis_reversed = Dict(p=>i for (i,p)=enumerate(rowbasis))
+    M = Nemo.MatrixSpace(ℚ𝕢,(degz[1]+1)*(degz[2]+1),
+                         sum((degz[1]-deg[s][1]+1)*(degz[2]-deg[s][2]+1) for s=[:x,:y]))()
+    colbasis = [s=>(i,j) for s=[:x,:y] for i=0:degz[1]-deg[s][1] for j=0:degz[2]-deg[s][2]]
+    sort!(colbasis,lt=(p,q)->sum(p.second)<sum(q.second))
+    for (col,(s,(i,j)))=enumerate(colbasis)
+        for (e,c)=var[s].d
+            M[rowbasis_reversed[e.+(i,j)],col] += c*𝕢^(side==:left ? j*e[1] : e[2]*i)
+        end
+    end
+    (r,N) = nullspace(M)
+    sols = NTuple{2,Polynomial}[]
+    for col=1:r
+        sol = Dict(s=>Dict{Exponent,Scalar}() for s=[:x,:y])
+        for (row,(s,p))=enumerate(colbasis)
+            if !iszero(N[row,col])
+                sol[s][p] = N[row,col]
+            end
+        end
+        push!(sols,(Polynomial(sol[:x]),Polynomial(sol[:y])))
+    end
+    isempty(sols) && error("$x $y $degz $side")
+    sols
+end
+
+"""Computes the common multiples of x,y on side∈[:left,:right] of smallest degree
+"""
+function all_ore(x,y,side::Symbol=:left)
+    degx = bidegree(x)
+    degy = bidegree(y)
+    degm = maximum.(zip(degx,degy))
+    smallest = all_ore(x,y,degm .*2 .+1,side)[1]
+    (dega,degb) = bidegree.(smallest)
+    [smallest]
+    #!!! todo: make degree smaller on either coordinate of degs
+end
+
+ore(x,y,side=:left) = all_ore(x,y,side)[1]
+
+run_tests && @testset "Ore operation" begin
+    @test ore(U,R) == (𝕢^-1*R,U)
+    @test ore(U,R,:right) == (𝕢*R,U)
+    @test ore(U+R,U+R) == (one(U),one(U))
+    (a,b) = ore(U^2+R,R^2+U,:left)
+    @test a*(U^2+R) == b*(R^2+U)
+    (a,b) = ore(U^2+R,R^2+U,:right)
+    @test (U^2+R)*a == (R^2+U)*b
+end
+    
+################################################################
+# now quotient types, left and right
+"""A fraction over Polynomial. S is :left or :right"""
+struct Fraction{S}
+    den::Polynomial
+    num::Polynomial
+end
+
+Fraction{S}(p::Polynomial) where S = Fraction{S}(one(p),p)
+Fraction(p::Polynomial) = Fraction{:left}(p)
+Fraction(p::Polynomial,q::Polynomial) = Fraction{:left}(p,q)
+Base.inv(p::Polynomial) = Fraction{:left}(p,one(p))
+
+Base.:/(p::Polynomial,q::Polynomial) = Fraction{:right}(q,p)
+Base.:\(p::Polynomial,q::Polynomial) = Fraction{:left}(p,q)
+
+Base.promote_rule(::Type{Fraction{:right}},::Type{Fraction{:left}}) = Fraction{:right}
+
+Base.:+(x::Fraction, y) = +(promote(x,y)...)
+Base.:-(x::Fraction, y) = -(promote(x,y)...)
+Base.:*(x::Fraction, y) = *(promote(x,y)...)
+Base.:+(x, y::Fraction) = +(promote(x,y)...)
+Base.:-(x, y::Fraction) = -(promote(x,y)...)
+Base.:*(x, y::Fraction) = *(promote(x,y)...)
+
+function Base.show(io::IO, f::Fraction{S}) where S
+    (d,n) = string.((f.den,f.num))
+    if match(r" [+-] ",d)≠nothing d = "("*d*")" end
+    if match(r" [+-] ",n)≠nothing n = "("*n*")" end
+    if S==:left
+        print(io, d, " \\ ",n)
+    else
+        print(io, n, " / ",d)
+    end
+end
+
+for (side,oside)=[(:(:left),:(:right)),(:(:right),:(:left))]
+    @eval Base.promote_rule(::Type{Fraction{$side}},::Type{Polynomial}) = Fraction{$side}
+    @eval Base.promote_rule(::Type{Fraction{$side}},::Type{Scalar}) = Fraction{$side}
+    @eval Base.promote_rule(::Type{Fraction{$side}},::Type{Int}) = Fraction{$side}
+    @eval Base.promote_rule(::Type{Fraction{$side}},::Type{Rational}) = Fraction{$side}
+    
+    @eval Base.convert(::Type{Fraction{$side}}, x::Polynomial) = Fraction{$side}(x)
+    @eval Base.convert(::Type{Fraction{$side}}, x::Scalar) = Fraction{$side}(Polynomial(x))
+
+    @eval Base.convert(::Type{Fraction{$side}}, x::Int) = Fraction{$side}(Polynomial(x))
+
+    @eval Base.convert(::Type{Fraction{$side}}, x::Rational) = Fraction{$side}(Polynomial(x))
+    
+    @eval function Base.convert(::Type{Fraction{$side}}, f::Fraction{$oside})
+        (a,b) = ore(f.den,f.num,$side)
+        Fraction{$side}(b,a)
+    end
+
+    @eval function Base.inv(f::Fraction{$side})
+        Fraction{$side}(f.num,f.den)
+    end
+
+    @eval Base.iszero(f::Fraction{$side}) = iszero(f.num)
+
+    @eval Base.isone(f::Fraction{$side}) = f.num == f.den
+
+    @eval Base.zero(f::Fraction{$side}) = Fraction{$side}(zero(f.num))
+
+    @eval Base.one(f::Fraction{$side}) = Fraction{$side}(one(f.num))
+    
+    @eval Base.numerator(f::Fraction{$side}) = f.num
+    @eval Base.denominator(f::Fraction{$side}) = f.den
+    
+    @eval Base.:(==)(f::Fraction{$side},g::Fraction{$side}) = convert(Fraction{$oside},f) == g
+
+    @eval Base.:-(f::Fraction{$side}) = Fraction{$side}(f.den,-f.num)
+
+    @eval Base.:-(f::Fraction{$side}, g::Fraction{$side}) = f+(-g)
+
+    @eval Base.:/(f::Fraction{$side}, g::Fraction{$side}) = f*inv(g)
+
+    @eval Base.:\(f::Fraction{$side}, g::Fraction{$side}) = inv(f)*g
+
+    @eval Base.:^(f::Fraction{$side}, g::Fraction{$side}) = inv(g)*f*g
+
+    @eval function Base.:^(f::Fraction{$side}, i::Int)
+        if i<0
+            inv(f)^(-i)
+        elseif i==0
+            one(f)
+        elseif i==1
+            f
+        elseif iseven(i)
+            (f*f)^(i÷2)
+        else
+            (f*f)^(i÷2)*f
+        end
+    end
+
+    @eval Base.hash(f::Fraction{$side}) = hash(f.den,hash(f.num))
+
+    @eval function simplify(f::Fraction{$side})
+        p = convert(Fraction{$side},convert(Fraction{$oside},f))
+        l = lcm(denominator(p.den),denominator(p.num))
+        for k = keys(p.den.d)
+            p.den.d[k] *= l
+        end
+        for k = keys(p.num.d)
+            p.num.d[k] *= l
+        end
+        p
+    end
+end
+
+Base.:(==)(f::Fraction{:left},g::Fraction{:right}) = g == f
+Base.:(==)(f::Fraction{:right},g::Fraction{:left}) = g.den*f.num == g.num*f.den
+
+Base.:(==)(f::Fraction{:left},g::Polynomial) = f.den*g == f.num
+Base.:(==)(f::Fraction{:right},g::Polynomial) = g*f.den == f.num
+Base.:(==)(f::Polynomial,g::Fraction) = g == f
+
+Base.:/(f::Fraction{:right},g::Polynomial) = Fraction{:right}(f.den*g,f.num)
+Base.:/(f::Polynomial,g::Fraction{:right}) = Fraction{:right}(g.num,f*g.den)
+Base.:\(f::Polynomial,g::Fraction{:left}) = Fraction{:left}(f*g.den,g.num)
+Base.:\(f::Fraction{:left},g::Polynomial) = Fraction{:left}(f.num,f.den*g)
+
+Base.:*(f::Fraction{:left},g::Polynomial) = Fraction{:left}(f.den,f.num*g)
+Base.:*(f::Polynomial,g::Fraction{:right}) = Fraction{:right}(g.den,f*g.num)
+
+function Base.:+(f::Fraction{:left}, g::Fraction{:left})
+    (a,b) = ore(f.den,g.den,:left)
+    Fraction{:left}(a*f.den,a*f.num+b*g.num)
+end
+
+function Base.:+(f::Fraction{:right}, g::Fraction{:right})
+    (a,b) = ore(f.den,g.den,:right)
+    Fraction{:right}(f.den*a,f.num*a+g.num*b)
+end
+
+function Base.:*(f::Fraction{:left}, g::Fraction{:left})
+    (a,b) = ore(f.num,g.den,:left)
+    Fraction{:left}(a*f.den,b*g.num)
+end
+
+function Base.:*(f::Fraction{:right}, g::Fraction{:right})
+    (a,b) = ore(f.den,g.num,:right)
+    Fraction{:right}(g.den*b,f.num*a)
+end
+
+run_tests && @testset "Fractions" begin
+    @test inv(inv(R)) == R
+    (lR,lU) = Fraction{:left}.((R,U))
+    (rR,rU) = Fraction{:right}.((R,U))
+    @test lR == rR == R
+    @test lU == rU == U
+    @test lR*lU == 𝕢*lU*lR == rR*rU == 𝕢*rU*rR
+    for u=[lU,rU,U], r=[lR,rR,R]
+        @test u/r == U/R
+        @test u\r == U\R
+    end
+    @test inv(R)+inv(U) == (𝕢*U*R) \ (𝕢*U + R)
+end
+
+end
