@@ -289,7 +289,7 @@ function ore_linalg(x,y,side::Symbol=:left,direction=nothing)
         elseif direction[2]==0
             basis = [[i,j] for i=0:d^2 for j=0:d]
         else
-            basis = [[i,j] for i=0:d for j=0:d if i*direction[1]+j*direction[2]≤degz[2]]
+            basis = [[i,j] for i=0:d for j=0:d if i*direction[1]+j*direction[2]≤d]
         end
         sol = ore_linalg(x,y,side,basis,(s,e)->e[1]*direction[1]+e[2]*direction[2])
         if sol≠nothing # try to trim solution
