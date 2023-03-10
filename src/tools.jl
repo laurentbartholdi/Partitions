@@ -15,7 +15,6 @@ function automaton(t::StdVectorFst)
     @assert count(==((0,1,:R)),arcs)==1
     @assert all(p->(p[2]∈final)≤(p[3]==:U),arcs)
     prefinal = [i for (i,j,s)=arcs if s==:U && j∈final]
-    @info prefinal
     M = numstates(t)
     Automaton{M-1}([((i,j,s==:R ? 1 : 2) for (i,j,s)=arcs if i≠0)...,((i,i,3) for (i,j,s)=arcs if s==:U && j∈final)...])
 end
@@ -120,16 +119,18 @@ growthseries(t::Automaton, area) = [1; reverse!(growthseries_helper(t, area, zer
 
 ################################################################
 
-export R, U, quantumseries, Polynomial, Fraction, RFraction, LFraction, simplify, cancel
+#export R, U, 𝕢, quantumseries, Polynomial, Fraction, RFraction, LFraction, simplify, cancel
+export quantumseries, RFraction, LFraction, simplify, cancel
 
 const R = QuantumPlane.Fraction(QuantumPlane.R)
 const U = QuantumPlane.Fraction(QuantumPlane.U)
 
-const Polynomial = QuantumPlane.Polynomial
-const Fraction = QuantumPlane.Fraction
+#const Polynomial = QuantumPlane.Polynomial
+#const Fraction = QuantumPlane.Fraction
 const RFraction = QuantumPlane.Fraction{:right}
 const LFraction = QuantumPlane.Fraction{:left}
 const simplify = QuantumPlane.simplify
+#const 𝕢 = QuantumPlane.𝕢
 
 """Compute the rational expression in R,U expressing the automaton t."""
 function quantumseries(t::Automaton{N}; order = 1:N) where N
@@ -148,7 +149,10 @@ function quantumseries(t::Automaton{N}; order = 1:N) where N
         loopi = inv(one(R)-mat[si,si])
         for j=1:N+2, k=1:N+2
             (j-1∈order[1:i] || k-1∈order[1:i]) && continue
-            mat[j,k] += mat[j,si] * loopi * mat[si,k]
+            global stash
+            stash = (mat[j,k],mat[j,si],loopi,mat[si,k])
+            @info "(j,k)=($j,$k); computing $(mat[j,k]) += $(mat[j,si])*$loopi*$(mat[si,k])..."
+            mat[j,k] += simplify(mat[j,si] * loopi * mat[si,k])
         end
     end
     mat[1,N+2]
