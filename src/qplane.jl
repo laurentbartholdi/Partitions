@@ -237,10 +237,10 @@ bidegree(x) = iszero(x) ? [-1,-1] : maximum.(exponent_vectors(x))
 """Computes a common multiple m=a*x=b*y (if side==:left) or m=x*a=y*b
 (if side==:right) supported on rowbasis.
 Minimize the top-degree terms of a,b wrt order, which is a function taking (s,(i,j)) as arguments with s∈[:x,:y] and i,j integers representing U^iR^j.
-Returns nothing if there is no solution.
+Returns nothing if there is no solution, one solution if allsols=false, and otherwise a vector of all solutions.
 """
 
-function ore_linalg(x,y,side::Symbol,rowbasis,order)
+function ore_linalg(x,y,side::Symbol,rowbasis,order;allsols=false)
     side∈[:left,:right] || error("$side must be :left or :right")
 
     var = Dict(:x=>x, :y=>-y)
@@ -260,15 +260,20 @@ function ore_linalg(x,y,side::Symbol,rowbasis,order)
     (nullity,N) = nullspace(M)
     nullity==0 && return nothing
 
+    sols = NTuple{2,Polynomial}[]
     # we now rely on the fact that the nullspace is computed by rref,
     # so the first column has the lowest-index nonzeros.
-    sol = Dict(s=>Dict{Exponent,Scalar}() for s=[:x,:y])
-    for (row,(s,p))=enumerate(colbasis)
-        if !iszero(N[row,1])
-            sol[s][p] = N[row,1]
+    for col=1:nullity
+        sol = Dict(s=>Dict{Exponent,Scalar}() for s=[:x,:y])
+        for (row,(s,p))=enumerate(colbasis)
+            if !iszero(N[row,col])
+                sol[s][p] = N[row,col]
+            end
         end
+        push!(sols,(𝔸(sol[:x]),𝔸(sol[:y])))
+        allsols || return sols[1]
     end
-    (𝔸(sol[:x]),𝔸(sol[:y]))
+    return sols
 end
 
 """Computes the common multiples of x,y on side∈[:left,:right]
@@ -312,6 +317,7 @@ otherside(side::Symbol) = side==:left ? :right : :left
 function ore_syzygy(x,y,side::Symbol = :left,O = nothing)
     a = [one(x) zero(x); zero(x) one(x)]
     while !iszero(y)
+        @info "ore_syzygy" x,y
         (quotient, remainder, scale) = divrem(x,y,otherside(side),O)
         if iszero(quotient) # we're not making progress with free O
             O = :U
