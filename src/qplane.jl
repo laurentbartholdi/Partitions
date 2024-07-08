@@ -6,19 +6,19 @@ const run_tests = true
 
 export Polynomial, Fraction, 𝕢, R, U, simplify, series
 
-const ℚ𝕢, 𝕢 = RationalFunctionField(QQ,:𝕢)
+const ℚ𝕢, 𝕢 = rational_function_field(QQ,:𝕢)
 const Scalar = typeof(𝕢)
 const 𝔸, (U, R) = let (A, (U, R)) = ℚ𝕢["U","R"]
     pbw_algebra(A, strictly_upper_triangular_matrix([𝕢*U*R]), deglex(A))
 end
 const Polynomial = typeof(U)
 const Exponent = Vector{Int}
-const ℚ𝕢X,X = PolynomialRing(ℚ𝕢,:X)
+const ℚ𝕢X,X = polynomial_ring(ℚ𝕢,:X)
 
 # seem missing
 Base.zero(::Type{Scalar}) = zero(𝕢)
 Base.one(::Type{Scalar}) = one(𝕢)
-Oscar.coefficients_and_exponents(p::Polynomial) = zip(coefficients(p),exponent_vectors(p))
+Oscar.coefficients_and_exponents(p::Polynomial) = zip(coefficients(p),exponents(p))
 
 if false
 using MagmaCall
@@ -41,7 +41,7 @@ function magma_matrix(x::AbstractAlgebra.Generic.MatSpaceElem,name::String)
     stringratfun(x) = stringpoly(numerator(x)) * "/" * stringpoly(denominator(x))
     coeffs = collect(x) .|> stringratfun
     mat = "["*join(["["*join(coeffs[i,:],",")*"]" for i=1:row],",")*"]"
-    "R := RationalFunctionField(Rationals()); M := Matrix(R,$row,$col,$mat)"
+    "R := RationalFunctionField(Rationals()); $name := Matrix(R,$row,$col,$mat)"
 end
                       
 Base.convert(::Type{MagmaObject},x::AbstractAlgebra.Generic.MatSpaceElem) = magma_matrix(x,"M")*"; return M"
@@ -125,13 +125,13 @@ function Base.divrem(x::Polynomial, y::Polynomial, side::Symbol = :left, O = not
     
     if O==:U
         O = 1
-        deg_y = maximum(e[O] for e=exponent_vectors(y))
+        deg_y = maximum(e[O] for e=exponents(y))
     elseif O==:R
         O = 2
-        deg_y = maximum(e[O] for e=exponent_vectors(y))
+        deg_y = maximum(e[O] for e=exponents(y))
     elseif O==nothing # choose O such that the top-degree term has lowest degree in the other variable
         deg_UR = deg_RU = [-1,-1]
-        for e=exponent_vectors(y)
+        for e=exponents(y)
             if e[1]>deg_UR[1]
                 deg_UR = [e[1],e[2]]
             elseif e[1]==deg_UR[1]
@@ -154,15 +154,15 @@ function Base.divrem(x::Polynomial, y::Polynomial, side::Symbol = :left, O = not
         error("$O should be :U, :R or nothing")
     end
 
-    deg_x = maximum(e[O] for e=exponent_vectors(x))
-    deg_y_other = maximum(e[3-O] for e=exponent_vectors(y) if e[O]==deg_y)
+    deg_x = maximum(e[O] for e=exponents(x))
+    deg_y_other = maximum(e[3-O] for e=exponents(y) if e[O]==deg_y)
     
     (q,r,s) = (zero(x),x,one(x))
 
     for d=deg_x:-1:deg_y
         # x*s == y*q + r (left); s*x == q*y + r (right)        
 
-        deg_r_other = maximum(e[3-O] for e=exponent_vectors(r) if e[O]==d; init=-1)
+        deg_r_other = maximum(e[3-O] for e=exponents(r) if e[O]==d; init=-1)
         deg_r_other == -1 && continue
         
         top_y = zeros(Scalar,1+deg_y_other)
@@ -222,8 +222,8 @@ run_tests && @testset "Elementary polynomial operations" begin
         end
         if O≠nothing
             O = O==:U ? 1 : 2
-            d = maximum(e[O] for e=exponent_vectors(y))
-            @test all(e->e[O]<d,exponent_vectors(qrs.remainder))
+            d = maximum(e[O] for e=exponents(y))
+            @test all(e->e[O]<d,exponents(qrs.remainder))
         end
     end
     for side=[:left,:right], v=[0,1,2]
@@ -232,7 +232,7 @@ run_tests && @testset "Elementary polynomial operations" begin
     end
 end
 
-bidegree(x) = iszero(x) ? [-1,-1] : maximum.(exponent_vectors(x))
+bidegree(x) = iszero(x) ? [-1,-1] : maximum.(exponents(x))
 
 """Computes a common multiple m=a*x=b*y (if side==:left) or m=x*a=y*b
 (if side==:right) supported on rowbasis.
@@ -247,10 +247,10 @@ function ore_linalg(x,y,side::Symbol,rowbasis,order;allsols=false)
     
     rowbasis_reversed = Dict(p=>i for (i,p)=enumerate(rowbasis))
     maxdeg = maximum.(zip(rowbasis...))
-    colbasis = [s=>[i,j] for s=[:x,:y] for i=0:maxdeg[1] for j=0:maxdeg[2] if all(e->haskey(rowbasis_reversed,e.+(i,j)),exponent_vectors(var[s]))]
+    colbasis = [s=>[i,j] for s=[:x,:y] for i=0:maxdeg[1] for j=0:maxdeg[2] if all(e->haskey(rowbasis_reversed,e.+(i,j)),exponents(var[s]))]
     sort!(colbasis,lt=(p,q)->order(p...)<order(q...))
 
-    M = Nemo.MatrixSpace(ℚ𝕢,length(rowbasis),length(colbasis))()
+    M = matrix_space(ℚ𝕢,length(rowbasis),length(colbasis))()
     for (col,(s,(i,j)))=enumerate(colbasis)
         for (c,e)=coefficients_and_exponents(var[s])
             M[rowbasis_reversed[e.+(i,j)],col] += c*𝕢^(side==:left ? j*e[1] : e[2]*i)
@@ -309,7 +309,7 @@ function ore_linalg(x,y,side::Symbol=:left,direction=nothing)
     end
 end
 
-Oscar.degree(p::Polynomial,O) = maximum(e[O==:U ? 1 : 2] for e=exponent_vectors(p))
+Oscar.degree(p::Polynomial,O) = maximum(e[O==:U ? 1 : 2] for e=exponents(p))
 otherside(side::Symbol) = side==:left ? :right : :left
 
 """Computes the common multiples of x,y on side∈[:left,:right] of smallest degree in variable O∈[:U,:R]

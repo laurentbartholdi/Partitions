@@ -6,7 +6,7 @@ __precompile__(false)
 
 include("qplane.jl"); using .QuantumPlane
 
-using LightGraphs, Nauty, Distributed
+using Nauty, Distributed
 
 include("automata.jl")
 
