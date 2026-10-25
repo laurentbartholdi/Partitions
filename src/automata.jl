@@ -1,12 +1,12 @@
 ################################################################
 # produce automata generating partitions
 
-export ScanData, scan, parallel_scan, Automaton
+export ScanData, scan, parallel_scan, Automaton, allautomata
 
 const LASTGEN = 3 # could be 2 to force acceptance precisely on U transitions
 
 """
-The main data structure: Automaton.x[i,s] is the transition from state i on input s∈{1,2}; value 0 indicates no transition. There is implicitly an edge from the (unrepresented) initial state to 1 labeled 1. State i is accepting with implicit transition 2 iff Automaton.x[i,3]=1. Implicitly the empty word is also accepted.
+The main data structure: Automaton.x[i,s] is the transition from state i on input s∈{1,2}; value 0 indicates no transition. There is implicitly an edge from the (unrepresented) initial state to 1 labeled 1. State i is accepting with implicit transition 2 iff Automaton.x[i,3]≠0. Implicitly the empty word is also accepted.
 Automaton.g is a copy of the data in the form of a Nauty graph.
 """
 mutable struct Automaton{N}
@@ -26,7 +26,7 @@ mutable struct Automaton{N}
 end
 Base.copy(t::Automaton) = typeof(t)(copy(t.x),copy(t.g))
 Base.:(==)(t::Automaton, u::Automaton) = t.x == u.x
-Base.hash(t::Automaton) = hash(t.x)
+Base.hash(t::Automaton,h::UInt64) = hash(t.x,h)
 
 partition(x::Automaton{N}) where {N} = (Vector{Cint}(0:3N-1),Vector{Cint}([1<i<N for _=1:3 for i=1:N]))
 
@@ -92,7 +92,7 @@ function graph(t::Automaton{N}) where {N}
     end
     g
 end
-const nautyopt = Nauty.DEFAULTOPTIONS_DIGRAPH()
+const nautyopt = NautyTraces.DEFAULTOPTIONS_DIGRAPH()
 nautyopt.defaultptn = 0
 nautyopt.getcanon = 1
 
@@ -200,7 +200,9 @@ function scan(x::Automaton{N},sd::ScanData = ScanData(30),candidates::Vector{Pai
         s==3 && i≠j && continue # color 3 is just accepting
         add_arc!(x,i,j,s) || continue
 
-        (_,orbits,lab,canong) = Nauty.densenauty(x.g, nautyopt, partition(x))
+        lab, orbits, canong = let bundle = NautyTraces._nauty(x.g, nautyopt, partition(x))
+            bundle.lab, bundle.orbits, bundle.canong
+        end
 
         # we now have a canonical labelling of g.
         # orbits[v] is the orbit representative of vertex v
@@ -234,3 +236,37 @@ function parallel_scan(N,workers = nworkers(), area = 30)
 
     vcat(fetch.(refs)...)
 end
+
+function allautomata(n; partial = true, multi_initial = false, area = nothing)
+    stream = open(`$(@__DIR__)/../exhaustivautomata/dfa $n $(partial ? "--partial" : []) $(multi_initial ? "--multi-initial" : [])`)
+    getstate(c) = c-'0'+1
+    getletter(c) = c-'a'+1
+    v = area == nothing ? Automaton[] : Pair{Automaton,Vector{Int}}[]
+    
+    while true
+        s = readline(stream)
+        isempty(s) && return v
+        s = split(s,' ')
+        N = parse(Int,s[1])
+        a = Automaton{N}()
+        for i=2:length(s)
+            if s[i][1]=='i'
+                @assert s[i][2]=='0'
+            elseif s[i][1]=='f'
+                a.x[getstate(s[i][2]),3] |= 1
+            else
+                a.x[getstate(s[i][1]),getletter(s[i][2])] = getstate(s[i][3])
+            end
+        end
+        push!(v,area == nothing ? a : a => growthseries(a,area))
+    end
+end
+
+"""
+R(UR+U)^*U: diff <= 1
+R(UU+R)^*U: dual of odd
+R(UR+R)^*U: distinct
+R(RR+U)^*U: odd
+RU+RU(R+UR)(U+UU)
+RU(RR+RU)^*RU + RU + 
+"""

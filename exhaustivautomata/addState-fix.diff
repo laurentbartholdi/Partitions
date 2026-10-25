@@ -1,0 +1,17 @@
+--- a/include/AbstractAutomaton.hpp
++++ b/include/AbstractAutomaton.hpp
+@@ -106,9 +106,11 @@
+        @Return the created state
+     */
+     virtual StateLabel_t addState(const StateLabel_t & value=0){
+-      intTostateMap[stateNumber]=createState(value);
+-      stateTointMap[getRealValue(stateNumber-1)]=stateNumber-1;
+-      return getRealValue(stateNumber-1);
++      const int index=stateNumber;
++      const StateLabel_t state=createState(value);
++      intTostateMap[index]=state;
++      stateTointMap[state]=index;
++      return state;
+     }
+ 
+     

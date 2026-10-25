@@ -1,0 +1,1813 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype}
+\usepackage[margin=25mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,booktabs,enumitem}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Quantum-rational sums and holonomic boundary certificates}}
+
+\newcommand{\Q}{\mathbb Q}
+\newcommand{\Op}{\mathcal O}
+\newcommand{\Bhat}{\widehat B}
+\newcommand{\Ahat}{\widehat A}
+\newcommand{\Bres}{B^{\mathrm{res}}}
+\newcommand{\Bfor}{B^{\mathrm{for}}}
+\newcommand{\Bhol}{B^{\mathrm{hol}}}
+\newcommand{\Fhol}{F^{\mathrm{hol}}}
+\newcommand{\Dop}{D_{\Op}}
+\newcommand{\Khat}{\widehat K}
+\newcommand{\val}{\nu}
+\newcommand{\Mat}{\operatorname{Mat}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Lt}{\widetilde L}
+\newcommand{\dt}{\widetilde d}
+\newcommand{\ft}{\widetilde f}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\setlength{\parindent}{0pt}\setlength{\parskip}{4pt plus 1pt}
+\setlist{nosep,leftmargin=*}
+\allowdisplaybreaks[1]
+\clubpenalty=10000 \widowpenalty=10000
+
+\title{Quantum-rational sums and holonomic boundary certificates}
+\author{}\date{}
+
+\begin{document}
+\maketitle\vspace{-3em}
+
+\begin{abstract}
+Let $\Delta$ be a rational element of the quantum plane $YX=tXY$, expanded
+as a $t$-adic series, and let $S(\Delta)\in\Q[[t]]$ be the sum of its
+coefficients at $X=Y=1$. We certify $S(\Delta)=0$ by a \emph{boundary
+identity} $\Delta=(1-X)a+b(1-Y)$. The canonical boundary $b$ always exists
+as a formal series and always satisfies a linear $t$-difference equation; the
+whole difficulty is to prove that it \emph{converges}. We therefore split a
+certificate into two independent parts: an algebraic identity that pins down
+$b$, and a finite proof that its coefficients tend to $0$. For the first part
+we give operator certificates rational in the shift~$T$, found by solving a
+linear $q$-difference equation given by the least annihilator of the marginal;
+those without a pole at $T=0$ prove convergence as well, and give $S(\Delta)$
+exactly. For infinite product
+identities a pole at $T=0$ is forced. For the second part we show that decay
+along a single arithmetic
+progression suffices, and give two finite tests: uniform contraction, and a
+channel test with \emph{dilation witnesses}. Euler's odd--distinct partition
+identity is proved this way. Since only the sum matters, each block of the
+input may be replaced by other systems with the same sum: its second marginal,
+obtained by exchanging $X$ and $Y$, and the second marginal of a canonical
+realization. For partition generating functions these count by largest part
+and by number of parts. Searching over these readings proves all $79$
+differences within four families of realizations with a common sum, and all
+$813$ differences within $497$ lists of automata with a common growth series:
+most by a rational certificate without pole, and the infinite product
+identities by the channel test. A sum side, whose partial sums are not
+$q$-hypergeometric, is handled by channels up to a remainder that tends to $0$:
+the channels are hypergeometric elements of the module of the partial sums,
+obtained from the adjoint recurrence. With this, all $3237$ differences within
+a second set of $49$ lists are proved except the $29$ that involve three
+automata whose series equal the others by Gauss's theta-function identity. A short Julia
+implementation built on the PBW algebras of \textsc{Oscar} accompanies the
+paper.
+\end{abstract}
+
+\section{Overview}\label{sec:overview}
+
+\paragraph{The problem.} Write $K=\Q(t)$ and let $A=K\langle X,Y\rangle/(YX-tXY)$
+be the quantum plane. A rational element $\Delta$ of $A$ that is regular at
+$t=0$ has a $t$-adic expansion $\Delta=\sum_k t^kH_k(X,Y)$ in normally ordered
+polynomials $H_k$ (all $X$ before all $Y$). Its \emph{sum} is
+\[
+  S(\Delta)=\sum_k t^kH_k(1,1)\in\Q[[t]].
+\]
+Many $q$-series identities have the form $S(\Delta)=0$ for a difference
+$\Delta=h-h'$ of two rational generating functions;
+Section~\ref{sec:euler} treats Euler's identity in this form.
+
+\paragraph{Boundary certificates.} If $\Delta=(1-X)a+b(1-Y)$ with $a,b$ in the
+$t$-adic completion, then $S(\Delta)=0$ by telescoping. Conversely, whenever
+$S(\Delta)=0$ there is a unique such pair with $b$ free of $X$
+(Proposition~\ref{prop:canonical}). The function $b=b(Y)$ is the generating
+function of the partial sums of the marginal $C=\rho(\Delta)$, so
+\[
+  \text{$b$ converges}\iff S(\Delta)=0.
+\]
+A \emph{complete} certificate consists of
+\begin{enumerate}
+\item an \textbf{identity} that determines $b$ by finite data, and
+\item a finite \textbf{convergence proof} that the coefficients of $b$ tend to $0$.
+\end{enumerate}
+Part~1 is always possible: $b$ is holonomic (Theorem~\ref{thm:holonomic}). Part~2
+is the real content; no complete method for it is known, and we do not claim one.
+
+\paragraph{Results.}
+\begin{itemize}
+\item \emph{Rational operator certificates} (Section~\ref{sec:polynomial}),
+  with coefficients rational in $T$, come from the rational solutions of a
+  $q$-difference equation (Abramov's method), best formed from the least
+  annihilator of the marginal (Proposition~\ref{prop:factor}). Without a pole
+  at $T=0$ they deliver both parts at once and compute $S(\Delta)$; their
+  existence is decidable.
+\item \emph{Poles at $T=0$} (Section~\ref{sec:laurent}) are inverse shifts:
+  such certificates deliver Part~1 only, and the order of the pole is the
+  valuation that the convergence proof must make up. For identities between
+  infinite products the pole is forced (Proposition~\ref{prop:forced-pole}).
+\item \emph{One progression suffices} (Corollary~\ref{cor:progression}): the
+  partial sums are $t$-adically Cauchy at a rate read off from the input, so
+  decay along one arithmetic progression proves $S(\Delta)=0$, and then
+  yields an explicit linear decay rate for all coefficients of $b$.
+\item \emph{Convergence tests} (Section~\ref{sec:convergence}): uniform matrix
+  contraction, and a channel test based on decimation and dilation witnesses,
+  up to a finite boundary factor. The latter proves Euler's identity
+  (Section~\ref{sec:euler}).
+\item \emph{Remainders} (Section~\ref{sec:remainders}): partial sums that are not
+  a sum of $q$-hypergeometric terms may be one up to a regular combination of
+  themselves that tends to $0$. The terms are hypergeometric elements of their
+  module, dual to the $q$-hypergeometric solutions of the adjoint recurrence,
+  and the remainder is found by linear algebra on Laurent coefficients. This
+  proves identities with a sum side.
+\item \emph{Readings} (Section~\ref{sec:readings}): a block of the marginal
+  system may be replaced by its second marginal (exchange of $X$ and $Y$) or by
+  the second marginal of a canonical realization of its marginal, without
+  changing $S$. Searching over readings proves all $79$ differences within
+  four families of realizations with a common sum (Section~\ref{sec:families}),
+  all $813$ differences within $497$ lists of automata with a common growth
+  series, and, with remainders, all differences within a second set of $49$
+  lists except those that need Gauss's identity (Section~\ref{sec:automata}).
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Route & Part 1 (identity) & Part 2 (convergence)\\\midrule
+Rational certificate, no pole at $T=0$ & decidable & automatic\\
+Rational certificate, pole of order $s$ & decidable & must gain $s$ per index\\
+Vector telescoper & bounded ansatz & contraction or channel test\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Algebras and series}\label{sec:spaces}
+
+\subsection{Completions}
+Let $\Khat=\Q((t))$ with valuation $\val=\val_t$, $\val(0)=+\infty$. Put
+\[
+\begin{array}{lll}
+ A_0=\Q[t]\langle X,Y\rangle/(YX-tXY), & A=K\otimes A_0, & \Ahat=\varprojlim_N A_0/t^NA_0,\\[2pt]
+ B_0=\Q[t][Y], & B=K[Y], & \Bhat=\varprojlim_N B_0/t^NB_0=\Q[Y][[t]].
+\end{array}
+\]
+Elements of $\Ahat$ are series $\sum_{k\ge0}t^kH_k(X,Y)$ with $H_k\in\Q[X,Y]$
+written in normal order; multiplication is the quantum product. The algebras
+$B_0,B,\Bhat$ are the $X$-free parts. (Completion is taken before inverting
+$t$: since $t$ is a unit in $A$, the $t$-adic completion of $A$ itself is $0$.)
+
+Two larger series spaces carry convergence and its failure:
+\[
+  \Bres=\Bhat[t^{-1}]\qquad\text{and}\qquad \Bfor=\Khat[[Y]].
+\]
+For $v=\sum_n v_nY^n\in\Bfor$,
+\begin{equation}\label{eq:membership}
+  v\in\Bres\iff \val(v_n)\to+\infty,\qquad
+  v\in\Bhat\iff \val(v_n)\to+\infty\ \text{and}\ \val(v_n)\ge0\ \text{for all }n.
+\end{equation}
+Thus $B\subset\Bhat\subset\Bres\subset\Bfor$ and $K[[Y]]\subset\Bfor$, but
+$K[[Y]]\not\subset\Bres$. Evaluation at $Y=1$, $v\mapsto\sum_nv_n$, is defined
+on $\Bres$ (a $t$-adically convergent sum) and maps $\Bhat$ to $\Q[[t]]$; it is
+not defined on $\Bfor$. \emph{Formal existence in $\Bfor$ and convergence in
+$\Bres$ are different assertions}, and the paper is organized around this distinction.
+
+\subsection{The operator algebra and holonomic series}
+Let $Y$ act on $\Bfor$ by multiplication and $T$ by $Tv(Y)=v(tY)$. Since
+$TY=tYT$, this is an action of
+\[
+  \Op=K\langle Y,T\rangle/(TY-tYT),\qquad
+  \Bigl(\sum_j h_j(Y)T^j\Bigr)\cdot v=\sum_j h_j(Y)\,v(t^jY).
+\]
+We write elements of $\Op$ in normal order $Y^bT^a$.
+
+\begin{definition}
+A series $v\in\Bfor$ is \emph{holonomic} if $H\cdot v=0$ for some
+$0\ne H\in\Op$; equivalently, the $K(Y)$-span of $\{T^j v\}_{j\ge0}$ in
+$\Khat((Y))$ is finite-dimensional. Write $\Bhol$ for the set of holonomic
+series.
+\end{definition}
+
+The coefficient field is $K(Y)$, not $\Khat(Y)$; this is $q$-holonomicity in
+$Y$ with $q=t$ (cf.~\cite{GL}), not differential finiteness in $t$.
+
+\begin{proposition}\label{prop:closure}
+$\Bhol$ is a $\Khat$-subalgebra of $\Bfor$ containing $\Khat[Y]$. It is stable
+under $\Op$, under $T^{-1}v=v(Y/t)$, and under multiplication by elements of
+$K(Y)$ whenever the product lies in $\Bfor$.
+\end{proposition}
+\begin{proof}
+Let $V_v$ be the shift span of $v$. The shifts of $v+w$ lie in $V_v+V_w$, and
+those of $vw$ in the span of products of bases of $V_v$ and $V_w$. On the
+finite-dimensional space $V_v$ the map $T$ is injective and semilinear for the
+automorphism $a(Y)\mapsto a(tY)$ of $K(Y)$, hence bijective; so $T^{-1}v\in V_v$
+and $V_{T^{-1}v}=V_v$. The other statements are immediate.
+\end{proof}
+
+$\Bhol$ is \emph{not} a field: Appendix~\ref{app:not-field} gives
+$g\in\Bhol\cap\Bhat$ with $g^{-1}\in\Bhat\setminus\Bhol$. Its fraction field
+$\Fhol=\operatorname{Frac}(\Bhol)\subset\Khat((Y))$ consists of ordinary
+quotients of commuting series; field membership carries no difference equation.
+Note also that $\Bhol$ imposes no convergence: the relevant classes are
+$\Bhol\cap\Bres$ and $\Bhol\cap\Bhat$.
+
+\subsection{Operator fractions are not series}\label{sec:op-fractions}
+The skew field $\Dop=\operatorname{Frac}(\Op)$ consists of noncommuting
+operator fractions. It does not act on $\Bfor$: the nonzero operator $T-1$
+kills the series $1$, whereas every nonzero element of $\Dop$ is invertible.
+For instance $(1-tT)\cdot v=1$ has the unique solution
+$v=(1-t)^{-1}$, while $(1-tT)^{-1}\in\Dop$ is not a scalar; its geometric
+expansion acts on $\Bhat$ and gives $(1-tT)^{-1}\cdot1=(1-t)^{-1}$.
+We use $\Dop$ only for symbolic elimination, and every inverse applied to a
+series is given by an explicitly convergent expansion such as
+\eqref{eq:geometric} below. We write $\eps(H)=H\cdot1\in K[Y]$; it is linear
+but not multiplicative ($\eps(TY)=tY\ne Y=\eps(T)\eps(Y)$).
+
+\section{From a realization to the marginal system}\label{sec:input}
+
+\subsection{Realizations and the marginal}
+A \emph{right realization} of $\Delta$ is
+\begin{equation}\label{eq:input}
+  wQ=r,\qquad \Delta=we,\qquad Q\in\Mat_n(A),\ r\in A^{1\times n},\ e\in A^{n\times1},
+\end{equation}
+with $Q$ invertible over the fraction skew field of $A$. We always assume the
+\emph{normalization}
+\begin{equation}\label{eq:normalization}
+  Q\equiv I\pmod t,\qquad r,e\ \text{regular at } t=0
+\end{equation}
+coefficientwise in the normal basis, and select $w=rQ^{-1}\in\Ahat^{1\times n}$
+by geometric inversion. (Convergence of $\Delta$ alone does not imply convergence
+of all coordinates $w_i$ of an arbitrary realization.)
+
+The \emph{marginal} and the \emph{sum} are the linear maps
+\[
+  \rho\Bigl(\sum_k t^kH_k(X,Y)\Bigr)=\sum_kt^kH_k(1,Y)\in\Bhat,\qquad S(v)=\rho(v)(1)\in\Q[[t]].
+\]
+$\rho$ is not multiplicative: $\rho(YX)=tY\ne\rho(Y)\rho(X)$.
+
+\begin{lemma}[intertwining]\label{lem:intertwining}
+Let $\Phi:A\to\Op$ be the anti-isomorphism $\Phi(X^aY^b)=Y^bT^a$. For
+$w\in\Ahat[t^{-1}]$ and $q\in A$,
+\[
+  \rho(wq)=\Phi(q)\cdot\rho(w).
+\]
+Moreover $\ker\rho|_{\Ahat}=(1-X)\Ahat$.
+\end{lemma}
+\begin{proof}
+For $w=X^iY^j$, $q=X^aY^b$: $wq=t^{ja}X^{i+a}Y^{j+b}$, so
+$\rho(wq)=t^{ja}Y^{j+b}=Y^bT^a\cdot Y^j$. The kernel statement is polynomial
+division by $1-X$ in each $t$-degree.
+\end{proof}
+
+In other words, $A/(1-X)A\cong B$ as a right $A$-module, and $\Phi$ turns the
+right action into the left $\Op$-action. Applying the lemma to
+\eqref{eq:input} gives the \emph{compiled triple}
+\begin{equation}\label{eq:triple}
+  L_{ji}=\Phi(Q_{ij}),\qquad f_j=\rho(r_j)\in B,\qquad d_i=\Phi(e_i),
+\end{equation}
+and the \emph{marginal system}
+\begin{equation}\label{eq:compiled}
+  L\cdot m=f,\qquad C:=\rho(\Delta)=d\cdot m,\qquad m_i=\rho(w_i)\in\Bhat.
+\end{equation}
+By \eqref{eq:normalization}, $L=I-N$ where every coefficient of $N$ has positive
+valuation, and the selected solution is
+\begin{equation}\label{eq:geometric}
+  m=\sum_{j\ge0}N^j\cdot f,
+\end{equation}
+the unique solution in $\Bhat^n$. All later objects are computed from the
+triple $(L,f,d)$ alone.
+
+\subsection{The canonical boundary}
+
+\begin{proposition}\label{prop:canonical}
+For $\Delta\in\Ahat$ there exist $a,b\in\Ahat$ with
+\begin{equation}\label{eq:boundary}
+  \Delta=(1-X)a+b(1-Y)
+\end{equation}
+if and only if $S(\Delta)=0$. In that case there is exactly one such pair
+with $b\in\Bhat$, namely
+\[
+  b=\frac{C}{1-Y},\qquad a=(1-X)^{-1}\bigl(\Delta-C(Y)\bigr).
+\]
+\end{proposition}
+\begin{proof}
+Telescoping gives necessity. Write $C=\sum_kt^kC_k(Y)$. The quotient
+$C/(1-Y)$ has polynomial $t$-coefficients iff $C_k(1)=0$ for all $k$, i.e.\
+iff $S(\Delta)=0$; then $\Delta-C$ has zero marginal and is divisible by $1-X$
+(Lemma~\ref{lem:intertwining}). For an arbitrary pair, applying $\rho$ replaces
+$b$ by $\rho(b)\in\Bhat$ and division reconstructs $a$; uniqueness follows from
+injectivity of multiplication by $1-X$ and by $1-Y$.
+\end{proof}
+
+Write $C=\sum_nc_nY^n$ and $\beta_n=\sum_{j\le n}c_j$. Since $1-Y$ is a unit in
+$\Bfor$, the \emph{formal boundary} always exists:
+\begin{equation}\label{eq:partial-sums}
+  b=\frac{C}{1-Y}=\sum_n\beta_nY^n\in\Bfor,\qquad
+  b\in\Bhat\iff\beta_n\to0\iff S(\Delta)=0.
+\end{equation}
+Under \eqref{eq:normalization} all $c_n,\beta_n$ lie in $K$ and are integral.
+
+\subsection{An unconditional rate}\label{sec:rate}
+Choose integers
+\[
+  F_0\ge\deg_Yf,\qquad E\ge\deg_Yd,\qquad D\ge\max\{1,\deg_YL\},\qquad\alpha=F_0+E.
+\]
+Each factor $N$ in \eqref{eq:geometric} raises $t$-order by at least one and
+$Y$-degree by at most $D$, so
+\begin{equation}\label{eq:support}
+  \deg_Y[t^k]\,m_i\le F_0+Dk,\qquad \deg_Y[t^k]\,C\le\alpha+Dk.
+\end{equation}
+Hence $\val(c_n)\ge\lceil (n-\alpha)/D\rceil$, and with
+\begin{equation}\label{eq:rate}
+  k_\Delta(n)=\max\Bigl\{0,\Bigl\lceil\frac{n+1-\alpha}{D}\Bigr\rceil\Bigr\}
+\end{equation}
+we obtain:
+
+\begin{proposition}\label{prop:rate}
+For every normalized input and all $n'\ge n\ge0$,
+\[
+  \val(S(\Delta)-\beta_n)\ge k_\Delta(n),\qquad \val(\beta_{n'}-\beta_n)\ge k_\Delta(n).
+\]
+Consequently:
+\begin{enumerate}
+\item if $\val(\beta_n)<k_\Delta(n)$ for some $n$, then $S(\Delta)\ne0$, and the
+  leading term of $\beta_n$ is the leading term of $S(\Delta)$;
+\item $S(\Delta)=0$ if and only if $\val(\beta_n)\ge k_\Delta(n)$ for all $n$.
+\end{enumerate}
+\end{proposition}
+
+\begin{corollary}[one progression suffices]\label{cor:progression}
+If $\val(\beta_{n_j})\to\infty$ along some subsequence $n_j\to\infty$, then
+$S(\Delta)=0$, $b\in\Bhat$, and $\val(\beta_n)\ge k_\Delta(n)$ for every $n$.
+\end{corollary}
+\begin{proof}
+$S(\Delta)=\lim_n\beta_n=\lim_j\beta_{n_j}=0$; then apply Proposition~\ref{prop:rate}(2).
+\end{proof}
+
+So a convergence proof need only show decay along one arithmetic progression,
+at any rate; the uniform linear rate $k_\Delta$ then comes for free. Note that
+$k_\Delta$ does not by itself decide anything: checking item~2 for all $n$
+\emph{is} the zero problem.
+
+\section{The boundary is always holonomic}\label{sec:holonomic}
+
+\begin{lemma}[elimination]\label{lem:elimination}
+Let $G\in\Mat_s(\Op)$ be nonsingular over $\Dop$ with $T$-degree at most $D$, and
+fix a column index $k$. There are $U\in\Op^{1\times s}$ and $0\ne H\in\Op$ with
+$UG=H\,e_k^{\mathsf T}$ and $\deg_TU\le(s-1)D$.
+\end{lemma}
+\begin{proof}
+Seek $U_j=\sum_{i\le v}u_{ji}(Y)T^i$ over $K(Y)$ annihilating all columns
+except the $k$-th. There are $s(v+1)$ unknowns and at most $(s-1)(v+D+1)$ linear
+equations over $K(Y)$; for $v=(s-1)D$ a nonzero solution exists. The surviving
+entry $H$ is nonzero because $G$ is nonsingular. Clear a common left denominator.
+\end{proof}
+
+\begin{theorem}\label{thm:holonomic}
+For every normalized input, $m_i,C\in\Bhol\cap\Bhat$ and $b\in\Bhol$, with
+effectively computable annihilators. Moreover
+$S(\Delta)=0\iff b\in\Bhol\cap\Bhat$. Thus holonomicity imposes no further
+existence condition; it provides no convergence proof.
+\end{theorem}
+\begin{proof}
+Adjoin the constant $u=1$, selected by $(T-1)u=0$, $u(0)=1$. Then
+\[
+  G\cdot\begin{pmatrix}m\\u\\b\end{pmatrix}=0,\qquad
+  G=\begin{pmatrix}L&-f&0\\0&T-1&0\\-d&0&1-Y\end{pmatrix}
+\]
+with $G$ nonsingular. Lemma~\ref{lem:elimination} gives $UG=(0,\dots,0,H)$,
+a finite identity in $\Op$; applying it to the selected solution gives
+$H\cdot b=0$. Other columns give annihilators of the $m_i$, and
+Proposition~\ref{prop:closure} gives $C=d\cdot m\in\Bhol$. The last statement
+is \eqref{eq:partial-sums}.
+\end{proof}
+
+No inverse from $\Dop$ is applied to a series here, so there is no conflict
+with Section~\ref{sec:op-fractions}. An annihilator alone does not select $b$:
+the selected $m$, $u=1$ and $(1-Y)b=dm$ do.
+
+\begin{example}
+$\Delta=1$ gives $b=(1-Y)^{-1}\in\Bhol\setminus\Bres$, described finitely by
+$\bigl((1-tY)T-(1-Y)\bigr)b=0$, $b(0)=1$. Every coefficient has valuation $0$:
+a finite description is not a convergence proof.
+\end{example}
+
+The component $a$ has a similar description by replacing $\Phi$ with
+$\Psi(X^aY^b)=x^aY^bT^a$ over $\Op[x]$; no separate search for $a$ is needed.
+
+\subsection{Identically vanishing marginals}\label{sec:zero}
+An important special case is $C\equiv0$. It occurs whenever $\Delta=h-h'$ for
+two realizations of the same series, or more generally of series with the same
+marginal. Then $b=0$ and there is nothing to converge, yet a boundary
+certificate may still need a shift (Example~\ref{ex:two-realizations}). We
+certify $C=0$ directly by an annihilator. Write $H=\sum_bY^bH_b(T)$ for
+$H\in\Op$.
+
+\begin{proposition}[zero certificate]\label{prop:zero}
+Let $0\ne H\in\Op$ and $R\in\Op^{1\times n}$ satisfy
+\begin{equation}\label{eq:zerocert}
+  H\,d=R\,L,\qquad \eps(Rf)=0.
+\end{equation}
+Let $b_0$ be least with $H_{b_0}\ne0$, and
+$E=\{k\ge0:H_{b_0}(t^k)=0\}$. Then $E$ is finite and computable, and
+$C=0$ if and only if $c_k=0$ for all $k\in E$.
+\end{proposition}
+\begin{proof}
+$H\cdot C=(Hd)\cdot m=R\cdot(L\cdot m)=R\cdot f=\eps(Rf)=0$. Taking the
+coefficient of $Y^{k+b_0}$,
+\[
+  H_{b_0}(t^k)\,c_k=-\sum_{b>b_0}H_b(t^{k+b_0-b})\,c_{k+b_0-b}.
+\]
+By the unique-minimal-term argument of Section~\ref{sec:convergence}, the
+polynomial $H_{b_0}(z)$ is nonzero at $z=t^k$ for all $k$ beyond an explicit
+bound, so $E$ is finite. If $c_k=0$ for $k\in E$, induction on $k$ gives $c=0$.
+\end{proof}
+
+\begin{proposition}\label{prop:zero-exists}
+For every normalized input, a pair $(H,R)$ satisfying \eqref{eq:zerocert}
+exists. Consequently it is decidable whether $C\equiv0$; in particular,
+equality of the marginals of two realizations is decidable.
+\end{proposition}
+\begin{proof}
+The matrix $G'=\left(\begin{smallmatrix}L&-f\\0&T-1\end{smallmatrix}\right)$ from
+the proof of Theorem~\ref{thm:holonomic} is invertible over $\Dop$, so
+$(d,0)=VG'$ for some row $V$ over $\Dop$. A common left denominator $H\ne0$ of
+its entries (Ore condition) gives $U=HV=(R,R_u)$ over $\Op$ with $UG'=H(d,0)$,
+that is, $RL=Hd$ and $Rf=R_u(T-1)$; applying the last identity to $1$ gives
+$\eps(Rf)=0$. For the decision procedure, search $(H,R)$ by increasing degree,
+which terminates because a solution exists. Then compute $E$, and compute
+$c_k$ for $k\in E$.
+\end{proof}
+
+The equations \eqref{eq:zerocert} are linear and homogeneous in the
+coefficients of $H$ and $R$. With a degree ansatz they are a kernel computation
+over $K$.
+
+\begin{example}[two realizations]\label{ex:two-realizations}
+For the distinct-parts series $h'-1$ of Section~\ref{sec:euler}, the PBW
+realization gives the marginal system $L=1-tY-t^2YT$, $f=1$, $d=tY$. A two-state
+automaton gives $L'=\left(\begin{smallmatrix}1-tY&-tY\\-tT&1\end{smallmatrix}\right)$,
+$f'=(1,0)$, $d'=(tY,0)$. Their difference is the block system
+$\operatorname{diag}(L,L')$, $(1,1,0)$, $(tY,-tY,0)$ with $C\equiv0$. It has no
+polynomial certificate. A certificate with a pole of order~$1$ at $T=0$ exists,
+but its output is a cancelling combination of divergent series beyond the
+channel test.
+Proposition~\ref{prop:zero} applies at once:
+\[
+  H=1-tY-tYT,\qquad R=(tY,\,-tY,\,-t^2Y^2),\qquad E=\emptyset.
+\]
+For example $H\cdot tY=tY-t^2Y^2-t^3Y^2T=tY\cdot L$.
+\end{example}
+
+\section{Rational operator certificates}\label{sec:polynomial}
+
+\paragraph{Rational coefficients act on series.} Since $T\cdot Y^n=t^nY^n$, a
+rational function $r\in K(T)$ acts on $v=\sum v_nY^n$ coefficientwise,
+\[
+  r(T)\cdot v=\sum_n r(t^n)\,v_n\,Y^n,
+\]
+at every $n$ where $r$ has no pole at $t^n$. By the unique-minimum argument of
+Section~\ref{sec:convergence}, a nonzero polynomial vanishes at $z=t^n$ for
+finitely many computable $n$ only. So operators $\sum_bY^br_b(T)$ with
+coefficients in $K(T)$ act on all coefficients of large index. This is the sense
+in which certificates may be rational. (Fractions of operators in general do
+not act, Section~\ref{sec:op-fractions}; fractions in $T$ alone do.)
+
+\begin{definition}
+A \emph{rational certificate} is a pair of rows $P,R$ with entries in $K(T)[Y]$ with
+\begin{equation}\label{eq:polycert}
+  d=(1-Y)P+RL.
+\end{equation}
+It is \emph{polynomial} if $R$ and $P$ have entries in $\Op$.
+\end{definition}
+
+\begin{proposition}\label{prop:polycert}
+Let $(P,R)$ be a rational certificate and $q_n=[Y^n](P\cdot m)$. Then
+$c_n=q_n-q_{n-1}+[Y^n](R\cdot f)$ for all large $n$, so $\beta_n-q_n=\kappa$ is
+eventually constant. If no entry of $P$ has a pole at $T=0$, then $q_n\to0$ and
+\[
+  S(\Delta)=\kappa .
+\]
+If moreover no coefficient has a pole at any $t^n$, then $\kappa=(R\cdot f)(1)$
+and $b=P\cdot m+(R\cdot f)/(1-Y)$.
+\end{proposition}
+\begin{proof}
+Applying \eqref{eq:polycert} to $m$ gives $C=(1-Y)P\cdot m+R\cdot f$ at every
+index where the coefficients involved are defined, and $R\cdot f$ is a polynomial.
+If $p\in K(T)$ has no pole at $0$, then $\val p(t^j)$ is eventually constant, so
+$\val(q_n)\ge\min_b\val(m_{n-b})-\mathrm{const}\to\infty$.
+\end{proof}
+
+So a rational certificate without pole at $T=0$ is a complete proof of
+$S(\Delta)=0$, and otherwise computes $S(\Delta)\in K$ exactly. Denominators
+that do not vanish at $T=0$ are harmless: $1/q(t^n)$ has eventually constant
+valuation.
+
+\paragraph{Reduction.} Let $\Lambda$ be evaluation at $Y=1$ in normal order,
+$\Lambda(\sum Y^br_b(T))=\sum r_b(T)$, a map $K(T)[Y]\to K(T)$ with kernel
+$(1-Y)K(T)[Y]$. Every row decomposes as $R=R_0+(1-Y)V$ with $R_0$ free of $Y$,
+and replacing $(R,P)$ by $(R_0,P+VL)$ preserves \eqref{eq:polycert}. Hence a
+rational certificate exists iff
+\begin{equation}\label{eq:reduced}
+  \Lambda(RL)=\Lambda(d),\qquad R\in K(T)^{1\times n},
+\end{equation}
+and $P$ is recovered by exact left division by $1-Y$: if $\Lambda(E)=0$ for
+$E=\sum Y^be_b(T)$, then $E=(1-Y)P$ with $P=\sum Y^bp_b$,
+$p_b=\sum_{b'\le b}e_{b'}$. In coordinates $z\leftrightarrow T$, with
+$L_{ji}=\sum\ell_{ji,ba}Y^bT^a$ and $R_j=R_j(z)$, \eqref{eq:reduced} reads
+\begin{equation}\label{eq:dual}
+  \sum_{j,a,b}\ell_{ji,ba}\,z^aR_j(t^bz)=\Lambda(d_i)(z)\qquad(1\le i\le n),
+\end{equation}
+because $\Lambda(r(T)Y^bT^a)=r(t^bz)z^a$: a nonsingular linear $t$-difference
+system for $R$ (the transpose of $L$ under $Y\mapsto S$, $T\mapsto z$, $Sz=tzS$).
+
+\paragraph{Rational solutions.} Consider a scalar equation
+$\sum_{b=0}^Ba_b(z)\,y(t^bz)=r(z)$ with polynomial coefficients, $a_0,a_B\ne0$
+(Lemma~\ref{lem:elimination} applied to \eqref{eq:dual} gives one for each
+$R_j$). Its rational solutions are found as follows~\cite{Abramov}.
+\begin{enumerate}
+\item \emph{Denominator.} Let $u$ be an irreducible factor of the denominator,
+  $u\ne z$, and consider the chain of factors $u(t^iz)$ of the denominator. Its
+  first element divides $a_0(z)$ and its last divides $A(z)=a_B(t^{-B}z)$, since
+  otherwise that factor could not cancel in the equation. So the denominator divides
+  $z^kU(z)$, where $U$ collects, for $s$ from the largest dispersion down to~$0$,
+  $d(z)d(t^{-1}z)\cdots d(t^{-s}z)$ with $d=\gcd(A(z),a_0(t^sz))$, removing $d$
+  from $A$ and $d(t^{-s}z)$ from $a_0$ at each step.
+\item \emph{Pole at $0$.} If $y\sim cz^{-k}$, the lowest term of the left side
+  is $cz^{v-k}\chi_0(t^{-k})$, where $v=\min_b\operatorname{ord}_za_b$ and
+  $\chi_0(W)=\sum_b[z^v]a_b\,W^b$. So $k=v-\operatorname{ord}_zr$ or
+  $\chi_0(t^{-k})=0$: finitely many $k$.
+\item \emph{Numerator.} $N=z^kUy$ is a polynomial solution of an equation of
+  the same kind, of degree bounded by Lemma~\ref{lem:degree}. Its coefficients
+  solve a linear system over $K$, and the condition ``no pole at $0$'' is linear
+  in them.
+\end{enumerate}
+
+\begin{lemma}[degree bound]\label{lem:degree}
+Let $\sum_{j=0}^va_j(z)R(t^jz)=g(z)$ with $a_j,g\in K[z]$, not all $a_j=0$. Put
+$D=\max_j\deg a_j$, $\chi(W)=\sum_j[z^D]a_j\,W^j$, and let $E$ bound the
+$t$-degrees of the coefficients of $\chi$ after clearing denominators. Every
+polynomial solution satisfies
+\[
+  \deg R\le\max\{0,E,\deg g-D\}\qquad(\text{omit }\deg g\text{ if }g=0).
+\]
+\end{lemma}
+\begin{proof}
+If $\deg R=N$, the coefficient of $z^{N+D}$ on the left is $\chi(t^N)$ times the
+leading coefficient of $R$. For $N>E$ the terms of $\chi(t^N)$ occupy disjoint
+$t$-degree ranges, so $\chi(t^N)\ne0$; this forces $N+D\le\deg g$.
+\end{proof}
+
+\begin{theorem}\label{thm:decidable}
+Existence of a rational certificate, and of one without pole at $T=0$, is
+decidable; such a certificate yields $S(\Delta)$ exactly. No bound in $Y$ is
+needed.
+\end{theorem}
+
+Polynomial solution bounds for $q$-difference systems are also treated
+in~\cite{Middeke}. The implementation uses the scalar form of
+\eqref{eq:reduced} given by the annihilator: if $H\cdot C=g$, the $1\times1$
+identity $1=(1-Y)P+R(T)H$ gives $C=(1-Y)P\cdot C+R\cdot g$, and the condition is
+\begin{equation}\label{eq:scalar-cert}
+  \Lambda(R\,H)=\sum_bh_b(t^bz)\,R(t^bz)=1,\qquad H=\sum_bh_b(T)Y^b
+\end{equation}
+(coefficients on the left), a scalar equation of order $\deg_YH$. Here
+$b=P\cdot C$ is an image of $C$ itself; the system form can also succeed when
+$b$ is an image of the auxiliary series but not of $C$, and its polynomial case
+is searched as well.
+
+\paragraph{The least annihilator.} The scalar form depends on $H$, and the
+annihilator obtained from the system need not be the best one. The operators
+$A\in K(T)[Y]$ for which the coefficients of $A\cdot C$ vanish at all large
+indices form a left ideal of the Ore algebra $K(T)[Y]$, which is principal; let
+$A_C$ be a generator. A certificate
+$b=P\cdot C+(\text{polynomial})/(1-Y)$ exists iff $1-(1-Y)P$ lies in this ideal,
+that is, by the reduction above, iff \eqref{eq:scalar-cert} has a rational
+solution for $H=A_C$. A solution for a multiple $H=QA_C$ gives one for $A_C$
+(reduce $R\,Q$ modulo $(1-Y)$), but not conversely. The annihilator from the
+system is least for the class of $d$, not for $C$, and $A_C$ is often smaller:
+when $f$ excites only part of the system, and typically for a difference
+$C=C_1-C_2$ of two series that share a component. If $C$ is a polynomial,
+$A_C=1$. A candidate $A$ is easy to guess from $c_0,\dots,c_N$ by linear
+algebra; it is then proved as follows.
+
+\begin{proposition}[a smaller annihilator]\label{prop:factor}
+Let $H\cdot C=g$ with $g$ a polynomial, and let $H=QA$ with $A\in\Op$ and
+$Q\in K(T)[Y]$. Choose $D\in K[T]$ with $\widetilde Q=DQ\in\Op$, let $g_A$ be
+the part of $A\cdot C$ of degree less than $n_0$, and let $E$ be the exceptional
+set of $\widetilde Q$ (Proposition~\ref{prop:zero}). If $\widetilde Q\cdot g_A=D\cdot g$ and the
+coefficients of $A\cdot C$ vanish at the indices $n_0\le n\le\max E$, then
+$A\cdot C=g_A$.
+\end{proposition}
+\begin{proof}
+The series $u=A\cdot C-g_A$ satisfies
+$\widetilde Q\cdot u=D\cdot(H\cdot C)-\widetilde Q\cdot g_A=D\cdot g-D\cdot g=0$.
+Its coefficients vanish below $n_0$ by the choice of $g_A$, and up to $\max E$
+by assumption. The induction in the proof of Proposition~\ref{prop:zero} gives
+$u=0$.
+\end{proof}
+
+\begin{example}[a rational denominator]\label{ex:incomplete}
+$\Delta=(1-t)(1-tX)^{-1}(X-1)$ compiles to $L=1-tT$, $f=1-t$, $d=T-1$. Here
+\eqref{eq:reduced} reads $R(z)(1-tz)=z-1$, whose solution $R=(z-1)/(1-tz)$ is
+not polynomial (nor Laurent) but has no pole at $z=0$ or at any $z=t^n$: a
+complete certificate, with $S(\Delta)=R(1)(1-t)=0$. (In fact $C=0$ and
+$\Delta=(1-X)a$; Proposition~\ref{prop:zero} also applies, with $H=1-tT$,
+$R=T-1$ and $E=\emptyset$.) For a nonzero marginal, the system
+$L=\left(\begin{smallmatrix}1-tY&0\\-t&1-tT^2\end{smallmatrix}\right)$, $f=(1,0)$,
+$d=(0,1-Y)$ has $\beta_n=t^{n+1}/(1-t^{2n+1})$, and the scalar
+certificate~\eqref{eq:scalar-cert} gives $b=P\cdot C$ with
+$P=(t-T^2)/\bigl((t-1)(1+T^2)\bigr)$.
+\end{example}
+
+\section{Poles at \texorpdfstring{$T=0$}{T=0} and shifted unknowns}\label{sec:laurent}
+
+A denominator prime to $T$ is harmless (Proposition~\ref{prop:polycert}). The
+factor $T$ is not: $T^{-1}v=v(Y/t)$ preserves $\Bfor$ and $\Bhol$ but not $\Bres$,
+\[
+  (1-tY)^{-1}\in\Bhat,\qquad T^{-1}(1-tY)^{-1}=(1-Y)^{-1}\notin\Bres.
+\]
+Fix $s\ge0$ and change unknowns:
+\begin{equation}\label{eq:shift}
+  \mu=T^{-s}m,\quad \Lt=T^{-s}LT^s,\quad \ft=T^{-s}\cdot f,\quad \dt=dT^s,
+  \qquad\text{so}\qquad \Lt\mu=\ft,\quad C=\dt\mu.
+\end{equation}
+Since $T^{-s}YT^s=t^{-s}Y$, conjugation only rescales coefficients:
+$\Lt$ is again polynomial. The $\mu_i$ lie in $\Bhol$ but need not converge.
+
+\begin{proposition}\label{prop:laurent}
+Rational certificates whose entries have poles of order at most $s$ at $T=0$
+correspond bijectively, via $P_s=PT^s$, $R_s=RT^s$, to rational certificates
+$\dt=(1-Y)P_s+R_s\Lt$ of the shifted system without pole at $T=0$. Either form
+proves
+\[
+  b=P_s\cdot\mu+(R_s\cdot\ft)/(1-Y)\in\Bhol,\qquad (1-Y)b=C,
+\]
+i.e.\ it identifies the canonical formal boundary. It does \emph{not} prove
+convergence.
+\end{proposition}
+\begin{proof}
+Multiply \eqref{eq:polycert} on the right by $T^s$; left division by $1-Y$ does
+not change the order at $T=0$.
+\end{proof}
+
+\paragraph{What the shift costs.} If $g=T^sb=\sum\gamma_nY^n$ then
+$\gamma_n=t^{sn}\beta_n$. A convergent expression for $g$ only gives
+$\val(\gamma_n)\to\infty$; one needs $\val(\gamma_n)\ge sn+k(n)$ with
+$k(n)\to\infty$. Inverse shifts move difficulty from the identity to the
+estimate; they do not remove it. For identities between infinite products the
+pole at $T=0$ cannot be avoided:
+
+\begin{proposition}[forced pole]\label{prop:forced-pole}
+Suppose that along some progression $n=pm+r$ the auxiliary sequences (or $C$,
+in the scalar form) are sums of $q$-hypergeometric terms whose valuations tend
+to infinity, while the decomposition of $\beta$ into terms with pairwise
+non-similar ratios (Section~\ref{sec:intrinsic}) contains a term of bounded
+valuation whose ratio is not similar to $1$. Then every rational certificate
+has a pole at $T=0$.
+\end{proposition}
+\begin{proof}
+Without a pole, $\beta_{pm+r}-\kappa$ is a combination of finitely many shifts of
+the auxiliary sequences, with coefficients $r(t^{m})$ of bounded valuation for
+large $m$. A $q$-hypergeometric term times such a coefficient is a term with a
+similar ratio, of valuation still tending to infinity. Grouping by similarity
+classes and using the uniqueness of the decomposition, every term of $\beta-\kappa$
+would have valuation tending to infinity; the constant $\kappa$ only affects the
+class of ratio~$1$.
+\end{proof}
+
+For Euler's identity, $\beta_{2m}=(t;t^2)_m^{-1}-(-t;t)_{2m}$ is a difference of
+two terms of valuation $0$, while the auxiliary sequences have terms of
+valuation $2m$ (Section~\ref{sec:euler}). So every certificate has a pole at
+$T=0$; the limit $\beta_n\to0$ is the infinite product identity, and its
+finite certificate is the dilation witness of Section~\ref{sec:convergence}, a
+rational identity $\theta(\zeta)\chi(\zeta)=\prod_i\chi(t^{\mu+i}\zeta^\lambda)$
+between the ratios of the two products. The same holds for the $41$ channel
+pairs of Section~\ref{sec:families}: in the readings used, the least pole at
+$T=0$ of a rational certificate~\eqref{eq:scalar-cert} has order~$2$.
+
+\section{Convergence certificates}\label{sec:convergence}
+
+\subsection{Vector form of the output}
+For a normalized system with $L=\sum_{j=0}^qY^jL_j(T)$, coefficient
+extraction gives
+\[
+  L_0(t^n)m_n=f_n-\sum_{j=1}^{q}L_j(t^{n-j})m_{n-j},
+\]
+with $L_0(t^n)$ invertible over $K$. (The same holds for $\Lt$ and $\mu$.)
+Stacking $m_n,\dots,m_{n-q_i+1}$ (coordinate $i$ needs only lag
+$q_i=\max_j\deg_YL_{ji}$) gives, beyond a known index $n_0$,
+\begin{equation}\label{eq:state}
+  v_{n+1}=A(t^n)v_n,\qquad \beta_n=\pi(t^n)\,v_n,\qquad A,\pi\ \text{over }K(z).
+\end{equation}
+An operator certificate yields $\pi$ by coefficient extraction:
+$[Y^n]\,cY^jT^a\mu_i=c\,t^{a(n-j)}\mu_{i,n-j}$.
+
+Alternatively, $\pi$ can be found directly as a \emph{vector telescoper}:
+a rational row with
+\begin{equation}\label{eq:telescoper}
+  \pi(tz)A(z)-\pi(z)=\lambda(z),\qquad \pi(t^{N})v_{N}=\beta_{N},
+\end{equation}
+where $c_{n+1}=\lambda(t^n)v_n$; induction gives $\beta_n=\pi(t^n)v_n$ for
+$n\ge N$. A bounded ansatz for $\pi$ is a linear system over $K$. Neither
+discovery route is a prerequisite for the other, and both feed the same
+convergence tests.
+
+\paragraph{Valuations at $z=t^n$.} For $0\ne P(z)=\sum_ip_iz^i\in K[z]$ with
+least exponent $i_0$, the term $i_0$ is the unique minimum of
+$\val(p_i)+in$ as soon as $n>\max_{i>i_0}(\val p_{i_0}-\val p_i)/(i-i_0)$;
+from then on $\val P(t^n)=\val(p_{i_0})+i_0n$. Applied to numerators and
+denominators, every valuation inequality below is a finite check.
+
+\subsection{Uniform contraction}
+Choose integers $e_i$, $D(z)=\operatorname{diag}(z^{e_i})$,
+$A_D(z)=D(tz)A(z)D(z)^{-1}$ and $\pi_D=\pi D^{-1}$. Suppose that for some
+$\ell\ge1$ and $N$ every entry of $A_D(t^{\ell-1}z)\cdots A_D(z)$ at $z=t^n$
+has valuation $\ge1$ for $n\ge N$, and every entry of $\pi_D(t^n)$ has valuation
+$\ge h$. Then for $n\ge N$
+\begin{equation}\label{eq:contraction}
+  \val(\beta_n)\ge h+\min_{N\le j<N+\ell}\val\bigl(D(t^j)v_j\bigr)
+  +\Bigl\lfloor\frac{n-N}{\ell}\Bigr\rfloor.
+\end{equation}
+This forces decay for \emph{every} initial vector, so it fails whenever decay
+depends on cancellation specific to the selected initial values
+(Remark~\ref{rem:obstruction}).
+
+\subsection{Channels and dilation witnesses}
+Fix a period $p\ge1$ and a residue $r$, and suppose the $p$-step product
+\[
+  A^{[p]}(x)=A(t^{p-1}x)\cdots A(tx)A(x)
+\]
+is \emph{diagonal}. Then along $n=pm+r$ each coordinate evolves by itself.
+Put $\zeta=t^m$, choose $m_0$ with $pm_0+r\ge n_0$, and define the
+\emph{channels}
+\[
+  G_k(m)=\pi_k(t^{pm+r})\,v_{pm+r,k},\qquad
+  g_k(\zeta)=\frac{\pi_k(t^{r+p}\zeta^p)}{\pi_k(t^r\zeta^p)}\,A^{[p]}_{kk}(t^r\zeta^p).
+\]
+Then $G_k(m+1)=g_k(t^m)G_k(m)$ and $\beta_{pm+r}=\sum_kG_k(m)$ for $m\ge m_0$.
+
+\begin{proposition}[channel test]\label{prop:channels}
+Let $\mathcal K=\{k:G_k(m_0)\ne0\}$.
+\begin{enumerate}[label=(\alph*)]
+\item \emph{Decay.} If for each $k\in\mathcal K$ we have $\val g_k(t^j)\ge0$
+  for $j\ge m_0$ and $\val g_k(t^j)\ge1$ for $j\ge M$, then
+  $\val(\beta_{pm+r})\ge m+\min_k\val G_k(m_0)-M$.
+\item \emph{Dilation.} Let $\mathcal K=\{k_1,k_2\}$ with $\val g_{k_1}(t^j)\ge0$
+  for $j\ge m_0$, and put $\theta=g_{k_2}/g_{k_1}$. Suppose
+  \begin{enumerate}[label=(\roman*)]
+  \item the virtual initial ratio is $-1$:
+    $G_{k_2}(m_0)=-\prod_{j<m_0}\theta(t^j)\,G_{k_1}(m_0)$;
+  \item there are $\lambda\ge2$ and $\chi\in K[\zeta]$ with $\chi(0)=1$, integral
+    coefficients, $\chi(1)\ne0$, and
+    \begin{equation}\label{eq:dilation}
+      \prod_{i=0}^{\lambda-1}\chi(t^i\zeta^\lambda)=\theta(\zeta)\,\chi(\zeta).
+    \end{equation}
+  \end{enumerate}
+  Write $\chi-1=\sum_{i\ge i_1}\chi_i\zeta^i$ and $c=\min_i\val\chi_i$. Then
+  \[
+    \beta_{pm+r}=G_{k_1}(m)\Bigl(1-\prod_{j=m}^{\lambda m-1}\chi(t^j)\Bigr),
+    \qquad
+    \val(\beta_{pm+r})\ge\val G_{k_1}(m_0)+c+i_1m.
+  \]
+\end{enumerate}
+In either case Corollary~\ref{cor:progression} gives $S(\Delta)=0$.
+\end{proposition}
+\begin{proof}
+(a) $\val G_k(m)\ge\val G_k(m_0)+\max(0,m-M)$.
+(b) First, $\prod_{j<m}\theta(t^j)=\prod_{j=m}^{\lambda m-1}\chi(t^j)$ for all
+$m\ge0$, by induction: passing from $m$ to $m+1$ multiplies the right side by
+$\prod_i\chi(t^{\lambda m+i})/\chi(t^m)=\theta(t^m)$ by \eqref{eq:dilation}
+at $\zeta=t^m$; here $\chi(t^m)\ne0$ since $\chi(1)\ne0$ and $\chi(t^m)\equiv1$
+for $m\ge1$. By (i) and the channel recursions,
+$G_{k_2}(m)/G_{k_1}(m)=-\prod_{j<m}\theta(t^j)$ for $m\ge m_0$, which gives the
+formula for $\beta$. Each $\chi(t^j)-1$ has valuation $\ge i_1j+c$, so
+$\val\bigl(1-\prod_{j=m}^{\lambda m-1}\chi(t^j)\bigr)\ge i_1m+c$, and
+$\val G_{k_1}(m)\ge\val G_{k_1}(m_0)$.
+\end{proof}
+
+\paragraph{Finding the witness.} Write $\theta=u/v$ in lowest terms. Comparing
+degrees in $v(\zeta)\prod_i\chi(t^i\zeta^\lambda)=u(\zeta)\chi(\zeta)$ shows
+\[
+  (\lambda^2-1)\deg\chi=\deg u-\deg v,
+\]
+and comparing constant terms requires $\theta(0)=1$. The coefficient of
+$\zeta^j$ on the left involves only coefficients of $\chi$ of degree
+$\le j/\lambda$, so $\chi$ is determined degree by degree from $\chi(0)=1$.
+One computes it up to the predicted degree and checks \eqref{eq:dilation}
+exactly. The identity says $\prod_{j\ge0}\theta(t^j)=1$, i.e.\ it is a
+finite certificate for an infinite product identity obtained by $\lambda$-section
+of the products $E_m=\prod_{j<m}\chi(t^j)$, namely
+$\prod_{j<m}\theta(t^j)=E_{\lambda m}/E_m$. The same recursion finds witnesses
+with an \emph{offset} $\mu\in\mathbb Z$, i.e.\ solutions of
+\begin{equation}\label{eq:dilation-mu}
+  \prod_{i=0}^{\lambda-1}\chi(t^{\mu+i}\zeta^\lambda)=\theta(\zeta)\,\chi(\zeta);
+\end{equation}
+if $\chi$ is a witness for $\theta$, then $\chi(t^s\zeta)$ is a witness with
+offset $\mu=s(\lambda-1)$ for $\theta(t^s\zeta)$. So offsets arise when the
+channels are shifted in the index (Section~\ref{sec:six}).
+
+The channel test is a restricted certificate class: it needs a diagonal
+decimation, at most two live channels, and a dilation witness. It is not a
+hypothesis on the input and carries no completeness claim.
+
+\subsection{Channels of the output sequence}\label{sec:intrinsic}
+The test above reads channels off a state space, so it depends on the
+realization. An automaton realizing the same series typically has redundant
+states: for the distinct-parts automaton of Example~\ref{ex:two-realizations},
+the second coordinate is $t^{n+1}$ times the first. Then no product $A^{[p]}$ is
+diagonal, and the test fails although the series is the same. We now describe a
+version of the test that depends only on the sequence $(\beta_n)$.
+
+\paragraph{A recurrence for $\beta$.} As in the proof of
+Proposition~\ref{prop:zero-exists} (without the condition on $f$), there are
+$H\ne0$ and $R$ with $Hd=RL$. Then $H\cdot C=\eps(Rf)=:g\in K[Y]$, and hence
+$H(1-Y)\cdot b=g$. Write $H(1-Y)=\sum_bh_b(T)\,Y^b$ with the coefficients on
+the left. Taking coefficients gives
+\begin{equation}\label{eq:beta-rec}
+  \sum_b h_b(t^n)\,\beta_{n-b}=g_n\qquad(n\ge0),
+\end{equation}
+a linear recurrence for $\beta$ that is homogeneous for $n>\deg g$. In this
+normal order
+\[
+  (h(T)Y^b)(\kappa(T)Y^c)=h(T)\,\kappa(t^{-b}T)\,Y^{b+c},
+\]
+so the unknown coefficients of $H$ and $R$ enter linearly. Thus an $H$ of least
+$Y$-degree, which is the order of \eqref{eq:beta-rec}, is found by linear
+algebra over $K(T)$; one exists of degree $\le nD$ by the count of
+Lemma~\ref{lem:elimination}. This is the same computation as in
+Section~\ref{sec:zero}: if $g=0$, Proposition~\ref{prop:zero} decides whether
+$C\equiv0$.
+
+\paragraph{Sections.} Fix a period $p$ and a residue $r$, and put
+$x_m=\beta_{pm+r}$ and $\zeta=t^m$. Write \eqref{eq:beta-rec} in companion form
+$v_{k+1}=A(t^k)v_k$, and put $B(\zeta)=A^{[p]}(t^r\zeta^p)$. The rows
+$w_0=e_1$, $w_{j+1}(\zeta)=w_j(t\zeta)B(\zeta)$ satisfy
+$x_{m+j}=w_j(t^m)v_{pm+r}$. The first linear dependence among them over
+$K(\zeta)$ gives a proven recurrence
+\begin{equation}\label{eq:section-rec}
+  \sum_{i=0}^{k}q_i(t^m)\,x_{m+i}=0\qquad(m\ge m_0),\qquad q_i\in K[\zeta].
+\end{equation}
+
+\paragraph{Channels.} A \emph{$q$-hypergeometric term} is a sequence with
+$G(m+1)=g(t^m)\,G(m)$ for a rational $g\in K(\zeta)$, its \emph{ratio}. The
+$K$-rational ratios of all $q$-hypergeometric solutions of
+\eqref{eq:section-rec} are computed by the $q$-analogue of Petkov\v{s}ek's
+algorithm~\cite{APP}. Write $g=Z\cdot A(\zeta)/B(\zeta)\cdot C(t\zeta)/C(\zeta)$
+with $A\mid q_0$ and $B\mid q_k(t^{1-k}\zeta)$. The lowest and highest
+coefficients of the resulting equation determine $Z$ and $\deg C$, and $C$ is
+then found by linear algebra. Each ratio returned is verified by substitution.
+
+\begin{proposition}[decomposition]\label{prop:decomp}
+Let $q_k(t^m)\ne0$ and $g_i(t^m)\notin\{0,\infty\}$ for $m\ge m_1\ge m_0$, let
+$g_i$ be ratios of solutions of \eqref{eq:section-rec}, and put
+$G_i(m)=\prod_{j=m_1}^{m-1}g_i(t^j)$. If $x_m=\sum_ia_iG_i(m)$ for the $k$
+values $m_1\le m<m_1+k$, then this holds for all $m\ge m_1$.
+\end{proposition}
+\begin{proof}
+Both sides solve \eqref{eq:section-rec} for $m\ge m_1$. Since
+$q_k(t^m)\ne0$, each value is determined by the $k$ preceding ones.
+\end{proof}
+
+\begin{proposition}[convergence of channels]\label{prop:channels2}
+Let $x_m=\sum_ia_iG_i(m)$ for $m\ge m_1$, with $\val g_i(t^j)\ge0$ for $j\ge m_1$
+whenever $a_i\ne0$. Call channel $i$ \emph{decaying} if $\val g_i(t^j)\ge1$ for
+all large $j$, and \emph{stationary} otherwise. Suppose the stationary channels
+can be grouped into pairs $(k_1,k_2)$ such that
+\[
+  \theta=\frac{g_{k_2}}{g_{k_1}}=\theta_w(\zeta)\,\frac{\Gamma(t\zeta)}{\Gamma(\zeta)},
+  \qquad \Gamma\in K(\zeta),\quad \Gamma(0)=1,\quad
+  \Gamma(t^j)\notin\{0,\infty\}\ (j\ge m_1),
+\]
+where $\theta_w$ satisfies \eqref{eq:dilation-mu} for some $\lambda\ge2$, offset
+$\mu$ with $\lambda m_1+\mu\ge m_1$, and $\chi$ as in
+Proposition~\ref{prop:channels}(ii), and
+\[
+  a_{k_2}/a_{k_1}=-F(m_1)\,\Gamma(t^{m_1}),\qquad F(m)=\prod_{l=m}^{\lambda m+\mu-1}\chi(t^l).
+\]
+Then $\val(x_m)\ge sm+\kappa$ for explicit $s\ge1$ and $\kappa$, and
+$S(\Delta)=0$.
+\end{proposition}
+\begin{proof}
+A decaying channel has $\val(a_iG_i(m))\ge\val a_i+m-M_i$, as in
+Proposition~\ref{prop:channels}(a). For a pair, \eqref{eq:dilation-mu} at
+$\zeta=t^m$ gives $F(m+1)/F(m)=\prod_i\chi(t^{\lambda m+\mu+i})/\chi(t^m)=\theta_w(t^m)$,
+so $G_{k_2}(m)/G_{k_1}(m)=\prod_{j=m_1}^{m-1}\theta(t^j)
+=F(m)\Gamma(t^m)/\bigl(F(m_1)\Gamma(t^{m_1})\bigr)$ and
+\[
+  a_{k_1}G_{k_1}(m)+a_{k_2}G_{k_2}(m)=a_{k_1}G_{k_1}(m)\bigl(1-F(m)\,\Gamma(t^m)\bigr).
+\]
+Every factor of $F(m)$ is some $\chi(t^l)$ with $l\ge m$, so
+$\val(1-F(m))\ge i_1m+c$ as in Proposition~\ref{prop:channels}(b); and since
+$\Gamma(0)=1$, $\val(1-\Gamma(t^m))\ge\sigma m+\tau$ for large $m$, with
+$\sigma\ge1$. This proves decay along one progression, and
+Corollary~\ref{cor:progression} concludes.
+\end{proof}
+
+\paragraph{Shifted factors.} With $\Gamma=1$ the pairing is that of
+Proposition~\ref{prop:channels}(b). The factor $\Gamma$ is needed when the two
+products differ by a finite boundary factor. For instance,
+$(-t;t)_{2m}$ and $1/(t^3;t^2)_m$ have $\theta=(1+t\zeta^2)(1+t^2\zeta^2)(1-t^3\zeta^2)$,
+which has no witness, but
+\[
+  (1-t)\,(-t;t)_{2m}\,(t^3;t^2)_m=(1-t^{2m+1})\prod_{l=m+1}^{2m}(1-t^{2l}),
+\]
+so $\Gamma(\zeta)=1-t\zeta^2$, $\theta_w=(1-t\zeta^2)(1+t\zeta^2)(1+t^2\zeta^2)$
+and $\chi=1-t^2\zeta^2$ with $\lambda=2$, $\mu=0$. In general, $\theta_w$ is
+obtained by replacing each irreducible factor $f$ of $\theta$, normalized to
+$f(0)=1$, by another member $f(t^s\zeta)$ of its class
+$\{f(t^s\zeta)\}_{s\in\mathbb Z}$; the implementation tries the members whose lowest coefficient
+has valuation in a window $[w,w+e)$, $e$ the exponent of that coefficient, for
+$w=0,\dots,3$, and then $\Gamma$ is a product of shifts of the $f$.
+
+\paragraph{Independence of the realization.} Call two ratios $g,g'$
+\emph{similar} if $g'/g=h(t\zeta)/h(\zeta)$ for some $h\in K(\zeta)^\times$.
+Terms with pairwise non-similar ratios are linearly independent over
+$K(\zeta)$; this is the $q$-analogue of the classical statement for
+hypergeometric terms~\cite{PWZ}. Hence a sequence has at most one decomposition
+into $q$-hypergeometric terms with pairwise non-similar ratios. Moreover, if
+$x=\sum_iG_i$ satisfies a recurrence $Q$, then applying $Q$ gives
+$\sum_ir_iG_i=0$ with $r_i\in K(\zeta)$, so every $r_i=0$: each constituent
+solves every recurrence of $x$. So when a section of $\beta$ is a sum of
+$q$-hypergeometric terms, its constituents are found from the recurrence
+\eqref{eq:section-rec} of \emph{any} realization. The outcome of
+Propositions~\ref{prop:decomp} and~\ref{prop:channels2} depends only on the
+sequence $\beta$, within the search bounds (the periods $p$ tried, and the cap
+on $\deg C$). This route also subsumes the shifted certificates of
+Section~\ref{sec:laurent} for the purpose of proving convergence.
+
+\paragraph{Merging similar channels.} The ratios returned by the
+$q$-Petkov\v{s}ek step may be similar. Then the corresponding terms are
+proportional with rational factors, the coefficients $a_i$ of
+Proposition~\ref{prop:decomp} are not unique, and the individual terms can be
+stationary although their sum decays. So each similarity class is first
+replaced by one term: if $g_j=g_i\,h_j(t\zeta)/h_j(\zeta)$, then
+$G_j(m)=G_i(m)\,h_j(t^m)/h_j(t^{m_1})$ and
+\[
+  \sum_ja_jG_j(m)=P(t^m)\,G_i(m),\qquad
+  P(\zeta)=\sum_ja_j\,\frac{h_j(\zeta)}{h_j(t^{m_1})},
+\]
+a single term with ratio $g_i\,P(t\zeta)/P(\zeta)$; classes with $P=0$ disappear.
+A solution $h$ of $h(t\zeta)/h(\zeta)=\rho$ is found from the factorization of
+$\rho$. Its irreducible factors other than $\zeta$ fall into classes
+$\{f(t^s\zeta)\}_{s\in\mathbb Z}$; $h$ exists iff $\zeta$ does not occur, the
+exponents in each class sum to zero and the remaining constant is a power
+$t^k$, and then $h=\zeta^k\prod f(t^s\zeta)^{-w_s}$, where $w_s$ is the sum of the
+exponents of the class at shifts $\le s$.
+
+\subsection{Channels up to a convergent remainder}\label{sec:remainders}
+Proposition~\ref{prop:channels2} needs a section of $\beta$ that is a sum of
+$q$-hypergeometric terms. This fails for a \emph{sum side}: a series such as
+$\sum_nt^{\binom{n+1}2}/(t;t)_n$, whose partial sums are not
+$q$-hypergeometric, while its product form $(-t;t)_\infty$ appears only in
+another realization (Section~\ref{sec:automata} has examples). Such a side is
+still a sum of $q$-hypergeometric terms up to a remainder that tends to $0$, and
+the remainder is a combination of the sequence itself with coefficients
+regular at $\zeta=0$.
+
+\begin{proposition}[remainders]\label{prop:remainder}
+Let $x_m\to S$ $t$-adically, and let $\pi_0,\dots,\pi_K\in K(\zeta)$ be regular
+at $\zeta=0$ with $\sum_j\pi_j(0)=0$. Then $\sum_j\pi_j(t^m)\,x_{m+j}\to0$.
+\end{proposition}
+\begin{proof}
+The sum is $\sum_j\pi_j(t^m)(x_{m+j}-S)+S\sum_j\pi_j(t^m)$. The valuations of
+the $\pi_j(t^m)$ are bounded below, and $\sum_j\pi_j(t^m)\to\sum_j\pi_j(0)=0$.
+\end{proof}
+This applies to $x_m=\beta^{(b)}_{pm+r}$, the partial sums of one diagonal block
+$b$ of the system: $x_m\to S^{(b)}$ by Proposition~\ref{prop:rate}, whatever the
+value $S^{(b)}$ is.
+
+\paragraph{Hypergeometric elements.} Let $x$ solve the section recurrence
+\eqref{eq:section-rec},
+\[
+  (\mathcal Qx)_m=\sum_{i=0}^kq_i(t^m)\,x_{m+i}=0\qquad(m\ge m_0).
+\]
+A \emph{hypergeometric element} is a combination
+$w_m=\sum_{j=1}^k\ell_j(t^m)x_{m+j}$ with $\ell_j\in K(\zeta)$ that is a
+$q$-hypergeometric term. These are dual to the $q$-hypergeometric solutions of
+the adjoint recurrence
+\[
+  (\mathcal Q^*y)_m=\sum_{i=0}^kq_i(t^{m-i})\,y_{m-i}=0.
+\]
+Indeed, the concomitant
+\[
+  W_m=\sum_{i=1}^k\sum_{l=m-i+1}^{m}q_i(t^l)\,y_l\,x_{l+i}
+\]
+satisfies $W_m-W_{m-1}=y_m(\mathcal Qx)_m-x_m(\mathcal Q^*y)_m$, so it is
+constant once both recurrences hold. If $y_{m+1}=\gamma(t^m)y_m$, then
+$w_m=W_m/y_m$ has ratio $1/\gamma$, and
+\[
+  \ell_j(\zeta)=\sum_{i=j}^kq_i(t^{j-i}\zeta)\prod_{u=1}^{i-j}\gamma(t^{-u}\zeta)^{-1}.
+\]
+The ratios $\gamma$ are found by the $q$-Petkov\v{s}ek step applied to
+$\mathcal Q^*$, whose extreme coefficients are those of $\mathcal Q$, shifted.
+(Equivalently, the elements correspond to the first-order left factors of
+$\mathcal Q$, as the solutions correspond to its first-order right factors.)
+
+\paragraph{The fit.} Given hypergeometric elements $w_i=L_ix$ and Laurent
+polynomials $s_i,\rho\in K[\zeta,\zeta^{-1}]$, put
+$\Pi=1-\sum_is_iL_i+\rho\,\mathcal Q=\sum_{j=0}^k\pi_jE^j$, with $E$ the shift.
+Then
+\[
+  x_m=\sum_is_i(t^m)\,w_{i,m}+(\Pi x)_m\qquad(m\ge m_0).
+\]
+If every $\pi_j$ is regular at $\zeta=0$ and $\sum_j\pi_j(0)=0$, the remainder
+$(\Pi x)_m$ tends to $0$ (Proposition~\ref{prop:remainder}), and the terms
+$s_iw_i$ are channels whose sum has the same limit as $x$. These conditions are
+linear in the Laurent coefficients of the $s_i$ and $\rho$: for a pole order
+$e$, the coefficients of $\zeta^{-e},\dots,\zeta^{-1}$ in each $\pi_j$ vanish, and
+the constant terms add up to $0$. The implementation lets $e$ run from $0$ to
+$6$, and then drops elements one at a time while the conditions stay solvable,
+so that few channels remain. Since a fit is only used to write $x$ as channels
+plus a remainder, any solution is valid; the choice affects only whether the
+channels then pass Proposition~\ref{prop:channels2}.
+
+\paragraph{The test with remainders.} $S$ is additive over the diagonal blocks.
+For each block, the section of its own $\beta$ is written as channels, exactly
+(Proposition~\ref{prop:decomp}) or with a remainder. A fit found for $p=1$ is
+restricted to the progression: $G(pm+r)$ has the ratio
+$\prod_{l<p}g(t^{r+l}\zeta^p)$ in $m$. If the union of the channels of all
+blocks, with similar classes merged, satisfies
+Proposition~\ref{prop:channels2}, then $\beta_{pm+r}$ minus a sum of remainders
+tends to $0$, so $S(\Delta)=0$. The implementation tries this for each period
+after the plain channel test has failed for all combinations of readings.
+
+\begin{example}\label{ex:sum-side}
+The first list of the second set in Section~\ref{sec:automata} contains the
+automata \texttt{[0R1 1U2 2R3 2U4 3R2 3U4 3U$\infty$ 4U3]} and
+\texttt{[0R1 1U2 2R3 2U4 3R2 3U4 3U$\infty$ 4R3]}, numbers $7$ and $8$, with the
+growth series $t\bigl((-t^2;t)_\infty-1\bigr)$. In reading \texttt{X}, the
+$\beta$ of number~$7$ is a sum of channels along even $n$:
+$\beta_{2m}=t/\bigl((1-t^2)(t^3;t^2)_{m-1}\bigr)-t$ for $m\ge1$. No reading of
+number~$8$ has this property. In reading \texttt{Y} its $\beta$ satisfies, with $\zeta=t^n$,
+\[
+  (t^2+t^4\zeta)\beta_n-\bigl(t^2-(t^3-t^4)\zeta\bigr)\beta_{n+1}-(1+t^3\zeta)\beta_{n+2}+\beta_{n+3}=0,
+\]
+whose only $q$-hypergeometric solutions are $1$ and $(-t)^n$. The adjoint has the
+solutions with ratios $1/t$ and $1/(t+t^4\zeta)$, which give the elements
+\[
+  w^{(1)}_n=-(t+t^{n+4})\beta_{n+1}+(t-1-t^{n+3})\beta_{n+2}+\beta_{n+3},\qquad
+  w^{(2)}_n=-t\beta_{n+1}+(t-1)\beta_{n+2}+\beta_{n+3},
+\]
+with ratios $t$ and $t+t^{n+4}$. In both, the coefficients add up to $0$ at
+$\zeta=0$, so both tend to $0$; the fit needs a pole, $s_1=-s_2=-1/((t^3+t^4)\zeta)$
+and $\rho=0$, and then $\Pi=1-(tE+E^2)/(1+t)$. Thus
+\[
+  \frac{t\beta_{n+1}+\beta_{n+2}}{1+t}=s_1(t^n)\,w^{(1)}_n+s_2(t^n)\,w^{(2)}_n
+  =t\bigl((-t^2;t)_{n+1}-1\bigr)\qquad(n\ge0),
+\]
+two channels with ratios $1$ and $1+t^{n+3}$, although $\beta_n$ itself is not a
+sum of channels; the remainder $\beta_n-(t\beta_{n+1}+\beta_{n+2})/(1+t)$ has
+valuation $2\lfloor n/2\rfloor+3$. Restricted to even $n$, the constants
+cancel, and $t(-t^2;t)_{2m+1}$ pairs with the channel of number~$7$ through
+Euler's witness $\chi=1-t^2\zeta^2$, $\lambda=2$, with a shifted form
+($\Gamma=1+t\zeta^2+t^2\zeta^2+t^3\zeta^4$); this proves the difference.
+\end{example}
+
+
+\section{Euler's odd--distinct identity}\label{sec:euler}
+
+\subsection{The input}
+Let
+\[
+  h=1+Y(1-X-Y^2)^{-1}X,\qquad h'=1+Y(1-Y-XY)^{-1}X,\qquad\Delta=h-h'.
+\]
+The series $h-1$ is the sum of all words
+$Y^{2i_1+1}XY^{2i_2}X\cdots Y^{2i_k}X$ with $k\ge1$. Moving each $X$ to the left
+costs one factor $t$ per $Y$ it passes, so this word equals
+$t^{|\lambda|}X^kY^{2i_1+\dots+2i_k+1}$ with
+$\lambda=(2i_1+1,\,2i_1+2i_2+1,\,\dots,\,2i_1+\dots+2i_k+1)$, the partition into
+odd parts read off from the number of $Y$'s preceding each $X$. Similarly the
+words of $h'-1$, $Y\,w\,X$ with $w\in\{Y,XY\}^*$, encode the partitions into
+distinct parts.
+
+These expressions are not normalized realizations
+\eqref{eq:normalization}: $1-X-Y^2\not\equiv1\pmod t$, and indeed
+$(1-X-Y^2)^{-1}$ does not converge $t$-adically, since all the words $X^k$ have
+weight $t^0$. Only the outer letters $Y\cdots X$ produce the weight. To move
+them inside, let $\sigma$ be the automorphism $X\mapsto tX$, $Y\mapsto tY$ of
+$A$. For a normal monomial $m=X^aY^b$, both $YmX$ and $tX\sigma(m)Y$ equal
+$t^{a+b+1}X^{a+1}Y^{b+1}$; hence $YwX=tX\sigma(w)Y$ for every word $w$. Put
+$P_{\mathrm o}=\sigma(1-X-Y^2)=1-tX-t^2Y^2$ and
+$P_{\mathrm d}=\sigma(1-Y-XY)=1-tY-t^2XY$, both $\equiv1\pmod t$. As $w$
+runs over $\{X,Y^2\}^*$, the words $\sigma(w)$ are the terms of the convergent
+expansion of $P_{\mathrm o}^{-1}$, and likewise for $\{Y,XY\}^*$ and
+$P_{\mathrm d}^{-1}$. Summing over words gives
+\[
+  h=1+tXP_{\mathrm o}^{-1}Y,\qquad h'=1+tXP_{\mathrm d}^{-1}Y.
+\]
+A normalized realization of $\Delta$ is
+\[
+  Q=\operatorname{diag}(P_{\mathrm o},P_{\mathrm d}),\qquad r=(X,X),\qquad e=(tY,-tY)^{\mathsf T},
+\]
+with compiled triple
+\begin{equation}\label{eq:euler-triple}
+  L=\begin{pmatrix}1-tT-t^2Y^2&0\\0&1-tY-t^2YT\end{pmatrix},\qquad
+  f=\begin{pmatrix}1\\1\end{pmatrix},\qquad d=(tY,-tY).
+\end{equation}
+Writing $m_{\mathrm o}=\sum\eta_nY^n$ and $m_{\mathrm d}=\sum\zeta_nY^n$, coefficient
+extraction gives $\eta_{2j+1}=0$ and
+\[
+  \eta_{2m}=\frac{t^{2m}}{(t;t^2)_{m+1}},\qquad
+  \zeta_n=t^n(-t;t)_n,\qquad
+  S(\Delta)=t\sum_{n\ge0}(\eta_n-\zeta_n).
+\]
+We will see that $\beta_{2m}=(t;t^2)_m^{-1}-(-t;t)_{2m}$, so
+$S(\Delta)=(t;t^2)_\infty^{-1}-(-t;t)_\infty$: the identity $S(\Delta)=0$ is
+Euler's theorem that partitions into odd parts and into distinct parts are
+equinumerous \cite[26.10]{DLMF}.
+
+\subsection{The identity: one inverse shift}
+Equations \eqref{eq:reduced}, with the condition $(R\cdot f)(1)=0$, read
+\[
+  (1-tz)R_1(z)-t^2R_1(t^2z)=t,\qquad R_2(z)-t(1+tz)R_2(tz)=-t,\qquad R_1(1)+R_2(1)=0.
+\]
+(the last condition makes $\kappa=0$ in Proposition~\ref{prop:polycert}).
+There is no polynomial solution: $-tzR_1(z)$
+would be the unique top-degree term. The homogeneous equations
+$(1-tz)h(z)=t^2h(t^2z)$ and $h(z)=t(1+tz)h(tz)$ have no rational solution, since
+the divisor of $h(t^2z)/h(z)$, resp.\ $h(tz)/h(z)$, has degree $0$ on every orbit
+$\alpha t^{\mathbb Z}$ while $1-tz$ and $1+tz$ have a single zero. So the rational
+solution is unique, $R=(-T^{-1},T^{-1})$, with a pole of order $s=1$ at $T=0$, as
+Proposition~\ref{prop:forced-pole} predicts. Left division by $1-Y$ gives
+$P=((1+Y)T^{-1}-t,\,-T^{-1})$. In the shifted form \eqref{eq:shift},
+\[
+  \Lt=\begin{pmatrix}1-Y^2-tT&0\\0&1-Y-tYT\end{pmatrix},\quad \ft=f,\quad \dt=(tYT,-tYT),
+\]
+\begin{equation}\label{eq:euler-cert}
+  \dt=(1-Y)P_s+R_s\Lt,\qquad P_s=(1+Y-tT,\,-1),\quad R_s=(-1,1),\quad R_s\ft=0,
+\end{equation}
+(e.g.\ $(1-Y)(1+Y-tT)-(1-Y^2-tT)=tYT$). Hence, with $\mu=T^{-1}m$,
+\begin{equation}\label{eq:euler-b}
+  b=(1+Y-tT)\mu_{\mathrm o}-\mu_{\mathrm d},\qquad (1-Y)b=C.
+\end{equation}
+The auxiliary series are integral but divergent: modulo $t$ they are
+$(1-Y^2)^{-1}$ and $(1-Y)^{-1}$. Only the output $b$ will be shown to converge.
+
+\subsection{Convergence: channels and a dilation witness}
+Write $\mu_{\mathrm o}=\sum x_nY^n$, $\mu_{\mathrm d}=\sum y_nY^n$. From $\Lt\mu=f$,
+\[
+  (1-t^{n+1})x_n=x_{n-2}+\delta_{n0},\qquad y_0=1,\quad y_n=(1+t^n)y_{n-1}.
+\]
+The state $v_n=(x_n,x_{n-1},y_n)$ satisfies $v_{n+1}=A(t^n)v_n$, and
+\eqref{eq:euler-b} gives $\beta_n=\pi(t^n)v_n$ with
+\[
+  A(z)=\begin{pmatrix}0&\frac1{1-t^2z}&0\\1&0&0\\0&0&1+tz\end{pmatrix},\qquad
+  \pi(z)=(1-tz,\ 1,\ -1).
+\]
+The two-step product $A(tz)A(z)$ is diagonal. Along $n=2m$ the middle channel
+vanishes ($x_{\mathrm{odd}}=0$), and the others are
+\[
+  U_m=(1-t^{2m+1})x_{2m}=\frac1{(t;t^2)_m},\qquad V_m=y_{2m}=(-t;t)_{2m},\qquad
+  \beta_{2m}=U_m-V_m,
+\]
+with multipliers $g_U(\zeta)=(1-t\zeta^2)^{-1}$ and
+$g_V(\zeta)=(1+t\zeta^2)(1+t^2\zeta^2)$, $U_0=V_0=1$, so the initial ratio is
+$-1$. The ratio is
+$\theta(\zeta)=(1-t\zeta^2)(1+t\zeta^2)(1+t^2\zeta^2)$; for $\lambda=2$ the
+degree equation gives $\deg\chi=6/3=2$, and the recursion returns
+\begin{equation}\label{eq:euler-witness}
+  \chi(\zeta)=1-t^2\zeta^2,\qquad \chi(\zeta^2)\chi(t\zeta^2)=(1-t^2\zeta^4)(1-t^4\zeta^4)=\theta(\zeta)\chi(\zeta).
+\end{equation}
+Proposition~\ref{prop:channels}(b) applies with $i_1=c=2$:
+\[
+  \beta_{2m}=U_m\Bigl(1-\prod_{j=m}^{2m-1}(1-t^{2j+2})\Bigr),\qquad \val(\beta_{2m})\ge2m+2.
+\]
+The same channels, witness and bound are obtained from the scalar recurrence
+of $\beta$ (Section~\ref{sec:intrinsic}), whichever realization of the two
+series is used: PBW expressions, automata, or redundant automata.
+By Corollary~\ref{cor:progression}, $S(\Delta)=0$, $b\in\Bhol\cap\Bhat$, and
+$\val(\beta_n)\ge k_\Delta(n)=\lceil n/2\rceil$ for all $n$ (here $\alpha=1$, $D=2$).
+Proposition~\ref{prop:canonical} then supplies the unique $a\in\Ahat$ with
+$\Delta=(1-X)a+b(1-Y)$. The odd indices need no separate argument.
+
+\begin{remark}[other routes]\label{rem:obstruction}
+The row $\pi$ can also be found directly as a vector telescoper from the
+unshifted system \eqref{eq:euler-triple}: the state
+$v_n=(\eta_n,\zeta_n,\eta_{n-1})$ satisfies $v_{n+1}=A_0(t^n)v_n$ with
+\[
+  A_0(z)=\begin{pmatrix}0&0&\frac{t^2}{1-t^2z}\\0&t(1+tz)&0\\1&0&0\end{pmatrix},
+  \qquad c_{n+1}=(t,-t,0)\,v_n,
+\]
+and the row $\pi_0(z)=\bigl((1-tz)/z,\,-1/z,\,t/z\bigr)$ satisfies
+$\pi_0(tz)A_0(z)-\pi_0(z)=(t,-t,0)$ and $\pi_0(1)v_0=0$, so
+$\beta_n=\pi_0(t^n)v_n$ without any operator certificate. Uniform contraction cannot
+prove its decay: for the initial vector $((1-t)^{-1},0,0)$ the same
+recurrence and row yield the unit sequence $U_m$ at even indices, so no bound valid for all initial vectors exists.
+The decay is a property of the selected initial values, which is exactly what
+condition~(i) of Proposition~\ref{prop:channels} records.
+\end{remark}
+
+\section{Readings: other series with the same sum}\label{sec:readings}
+
+The test of Section~\ref{sec:intrinsic} depends only on the partial sums $\beta$
+of the marginal $C$. The marginal, however, depends on the realization, while
+$S(\Delta)=C(1)$ does not. Partition generating functions typically have two
+marginals of different nature. For partitions into distinct parts $\ge2$, with
+sum $S=(-t^2;t)_\infty-1$,
+\[
+  C_{\mathrm{lp}}=\sum_{n\ge2}t^n(-t^2;t)_{n-2}\,Y^n,\qquad
+  C_{\mathrm{np}}=\sum_{k\ge1}\frac{t^{k(k+3)/2}}{(t;t)_k}\,Y^k
+\]
+count them by largest part and by number of parts. The partial sums of
+$C_{\mathrm{lp}}$ are products, $\beta_n=(-t^2;t)_{n-1}-1$, with
+$\val(S-\beta_n)=n+1$. Those of $C_{\mathrm{np}}$ are partial sums of a
+$q$-hypergeometric series, with $\val(S-\beta_k)=(k+1)(k+4)/2$. When the two
+sides of $\Delta$ are realized in these two ways, $C\not\equiv0$ and the channel
+test finds no proof (systems~1 and~2 of Section~\ref{sec:six} are an example),
+although $S(\Delta)=0$. This section replaces each block of the marginal system
+by other systems with the same sum.
+
+\subsection{The second marginal}
+Let $\rho_Y$ be evaluation at $Y=1$, followed by renaming $X$ to $Y$, and let
+$\Psi:A\to\Op$ be the isomorphism $\Psi(X^aY^b)=Y^aT^b$. On normal monomials of
+$\Op$ put $\operatorname{sw}(Y^bT^a)=Y^aT^b$, extended linearly.
+
+\begin{lemma}[transposition]\label{lem:transpose}
+Let $(L,f,d)$ be a normalized marginal system with sum $S$. Then
+\[
+  L'_{ij}=\operatorname{sw}(L_{ji}),\qquad
+  f'_i=\operatorname{sw}(d_i)\big|_{T=1},\qquad
+  d'_j=f_j(T)
+\]
+is a normalized marginal system with the same sum $S$.
+\end{lemma}
+\begin{proof}
+Put $Q=\Phi^{-1}(L^{\mathsf T})$, $e=\Phi^{-1}(d)$ and $r_j=f_j(Y)\in A$. By
+\eqref{eq:triple}, $(L,f,d)$ is the marginal system of the right realization
+$wQ=r$, $\Delta=we$, so $S(\Delta)=S$. The same element is $\Delta=rw'$ with
+$Qw'=e$, a \emph{left} realization, and $w'=Q^{-1}e$ is again given by
+geometric inversion. For $q=X^aY^b$ and $w=X^iY^j$ we have
+$qw=t^{bi}X^{a+i}Y^{b+j}$, hence $\rho_Y(qw)=\Psi(q)\cdot\rho_Y(w)$. Applying
+$\rho_Y$ to $Qw'=e$ and to $\Delta=rw'$ gives $L'\cdot m'=f'$ and
+$\rho_Y(\Delta)=d'\cdot m'$, with $m'=\rho_Y(w')$, $L'=\Psi(Q)$,
+$f'=\rho_Y(e)$ and $d'=\Psi(r)$; these are the formulas above. Both marginals of
+$\Delta$ take the value $S(\Delta)$ at~$1$.
+\end{proof}
+
+In the encoding of Section~\ref{sec:euler} a partition $\lambda$ becomes
+$t^{|\lambda|}X^kY^j$ with $k$ parts and largest part $j$. So the two marginals
+of such a realization count by largest part and by number of parts.
+
+\subsection{Canonical realizations}\label{sec:canonical-real}
+The second marginal depends on the system, not only on $C$. A system determined
+by $C$ comes from an annihilator. Let $H\cdot C=g\in K[Y]$ as in
+Section~\ref{sec:intrinsic}, write $H=\sum_bh_b(T)\,Y^b$ with coefficients on the
+left, and let $h\in K[T]$ be the greatest common divisor of the $h_b$, the
+\emph{content}: $H=h(T)H'$.
+
+\begin{proposition}[canonical realization]\label{prop:canonical-real}
+The series $u=H'\cdot C$ is a polynomial: $h(t^n)u_n=g_n$, so $u_n=0$ for
+$n>\deg g$ except at the finitely many $n$ with $h(t^n)=0$, and $u$ is computed
+from finitely many $c_n$. If $t^{-v}H'\equiv c\pmod t$ for some $v\in\mathbb Z$
+and $c\in\Q^\times$, then
+\[
+  \bigl(t^{-v}H'/c,\ \ t^{-v}u/c,\ \ 1\bigr)
+\]
+is a normalized $1\times1$ marginal system whose marginal is $C$. If $H$ has
+least $Y$-degree among all $H$ with $H\cdot C\in K[Y]$, the transpose of this
+system (Lemma~\ref{lem:transpose}) depends only on $C$.
+\end{proposition}
+\begin{proof}
+$h(T)$ acts on $Y^n$ as multiplication by $h(t^n)$, and the zeros of $h$ at
+$z=t^n$ are bounded as in Section~\ref{sec:convergence}. The system is
+normalized and $C\in\Bhat$ solves it, so $C$ is its selected solution. The $H$
+with $H\cdot C\in K[Y]$ form a left ideal of $\Op$. If $H_1,H_2$ are elements of
+least degree, a combination $b(T)H_1-a(T)H_2$ of lower degree lies in the ideal,
+so it vanishes: $H_1$ and $H_2$ are proportional over $K(T)$, and their
+content-free parts differ by a factor $\lambda\in K^\times$. Replacing $(H',u)$
+by $(\lambda H',\lambda u)$ multiplies $L'$ and $d'$ of the transpose by
+$\lambda$ and leaves its marginal $d'\cdot(L')^{-1}\cdot1$ unchanged.
+\end{proof}
+
+The implementation takes $H$ from \texttt{annihilator}, of least degree under
+a common bound on the degrees of $H$ and $R$. Only the last statement of the
+proposition depends on minimality; every reading has the sum $S$ in any case.
+
+\subsection{Searching the readings}\label{sec:search}
+If $\Delta=h-h'$ comes from two realizations, its marginal system is block
+diagonal; in general the blocks are the connected components of the nonzero
+pattern of $L$. The sum is additive over blocks, so every block can be replaced
+by any of its \emph{readings}: the block itself (\texttt{Y}), its transpose
+(\texttt{X}), and the transposes of the canonical realizations of these two
+(\texttt{cY$'$}, \texttt{cX$'$}), when they exist. Every combination is a
+normalized system with the same sum, and all previous methods apply to it
+unchanged: a violated a-priori rate proves $S(\Delta)\ne0$, and a zero
+certificate, a rational certificate without pole at $T=0$, a polynomial
+certificate or a channel proof proves $S(\Delta)=0$.
+The annihilator of a combination is assembled from those of its blocks: if
+$H_k\cdot C_k=g_k$ and $H=A_1H_1=A_2H_2=\cdots$ is a least common left multiple,
+then $H\cdot\sum_kC_k=\sum_kA_kg_k$. Readings of one series may also differ by a
+power of $Y$: the second marginal of a realization counts the parts from $0$ or
+from $1$, depending on where the outer letters are placed. Since
+$(Y^sC_k)(1)=C_k(1)$, when the marginals of the blocks start at different powers
+of $Y$ and cancel on their first coefficients after multiplying each block by
+the power of $Y$ that aligns them ($d\mapsto Y^sd$), the aligned combination is
+tried as well, and the zero test decides it. The implementation runs the cheap
+tests on the system as given, then on all combinations (at most four readings
+per block), and then the channel test with increasing period across all
+combinations.
+
+\subsection{Six realizations of one series}\label{sec:six}
+The following six systems all have the sum
+$S=(-t^2;t)_\infty-1=t^2+t^3+t^4+2t^5+2t^6+3t^7+\cdots$ of partitions into
+distinct parts $\ge2$; in each, $f=e_1$.
+\[
+\begin{array}{@{}c@{\ \ }l@{\qquad}c@{\ \ }l@{}}
+1&L=\begin{pmatrix}1-tT&-tT\\-tY&1\end{pmatrix},\ d=(0,tY)&
+2&L=\begin{pmatrix}1&-tT\\-tY&1-tY\end{pmatrix},\ d=(0,tY)\\[12pt]
+3&L=\begin{pmatrix}1&-tY\\-tT&1-tT\end{pmatrix},\ d=(0,tY)&
+4&L=\begin{pmatrix}1&-tY&0\\-tY&1&-tY\\-tT&-tT&1\end{pmatrix},\ d=(0,tY,0)\\[18pt]
+5&L=\begin{pmatrix}1&-tY&0\\-tY&1&-tT\\-tT&-tT&1\end{pmatrix},\ d=(0,tY,0)&
+6&L=\begin{pmatrix}1&0&0\\0&1-tY&-tY\\-tT&-tT&1\end{pmatrix},\ d=(0,tY,tY)
+\end{array}
+\]
+Their readings are of four kinds, distinguished by the valuations $\val(c_n)$:
+by largest part (\textsf{lp}, $\val(c_n)$ linear in $n$), by number of parts
+(\textsf{np}, quadratic), with alternating parity (\textsf{alt}:
+$2,5,4,7,6,9,\dots$), and supported on even $n$ (\textsf{ev}):
+\begin{center}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+reading & 1 & 2 & 3 & 4 & 5 & 6\\\midrule
+\texttt{Y}    & \textsf{np} & \textsf{lp} & \textsf{np} & \textsf{alt} & \textsf{alt} & \textsf{lp}\\
+\texttt{X}    & \textsf{lp} & \textsf{np} & \textsf{lp} & quadratic & \textsf{ev} & \textsf{np}\\
+\texttt{cY$'$} & -- & \textsf{np} & -- & \textsf{np} & -- & \textsf{np}\\
+\texttt{cX$'$} & \textsf{np} & \textsf{lp} & \textsf{np} & \textsf{lp} & \textsf{lp} & --\\
+\bottomrule
+\end{tabular}
+\end{center}
+(--: no canonical realization, since $t^{-v}H'\not\equiv c\pmod t$.) All
+fifteen differences $\Delta_i-\Delta_j$ are proved, with the readings of
+$\Delta_i$ and $\Delta_j$ shown: by a rational certificate without pole at $T=0$
+for the least annihilator (R), by the zero test (Z: the two readings are equal
+series), or by the channel test along $n=2m+r$ (C$_r$):
+\begin{center}
+\small
+\begin{tabular}{@{}c|ccccc@{}}
+ & 2 & 3 & 4 & 5 & 6\\\hline
+1 & R\ \texttt{X},\texttt{Y} & R\ \texttt{Y},\texttt{Y} & R\ \texttt{X},\texttt{Y} & C$_0$\ \texttt{X},\texttt{X} & R\ \texttt{X},\texttt{Y}\\
+2 & & R\ \texttt{X},\texttt{Y} & R\ \texttt{Y},\texttt{Y} & C$_0$\ \texttt{Y},\texttt{X} & R\ \texttt{Y},\texttt{Y}\\
+3 & & & R\ \texttt{X},\texttt{Y} & C$_0$\ \texttt{X},\texttt{X} & Z\ \texttt{X},\texttt{Y}\\
+4 & & & & C$_0$\ \texttt{cX$'$},\texttt{X} & R\ \texttt{Y},\texttt{Y}\\
+5 & & & & & C$_0$\ \texttt{X},\texttt{Y}
+\end{tabular}
+\end{center}
+In the nine R cases the two readings are different series, and their
+difference has a least annihilator of order $1$ or $2$, against $2$ or $3$ for
+the annihilator of the system; for 1--3, for instance,
+$R=(t^2+t)/\bigl((t+1)^2T^2-(t^2+2t)T+t\bigr)$.
+
+In the five channel proofs, $\beta_{2m}$ is a combination of two product
+channels with ratios $1/(1-t^3\zeta^2)$ and $(1+t^{a}\zeta^2)(1+t^{a+1}\zeta^2)$,
+whose quotient is $\theta(\zeta)=(1-t^3\zeta^2)(1+t^a\zeta^2)(1+t^{a+1}\zeta^2)$.
+For $a\in\{2,3\}$ ($a=3$ for 1--5 and 4--5, $a=2$ for 3--5 and 5--6) the witness
+is $\chi=1-t^{2a-2}\zeta^2$ with $\lambda=2$ and offset $\mu=1$:
+\[
+  \chi(t\zeta^2)\,\chi(t^2\zeta^2)=(1-t^{2a}\zeta^4)(1-t^{2a+2}\zeta^4)=\theta(\zeta)\,\chi(\zeta).
+\]
+For $a=1$ (pair 2--5) there is no witness for $\theta$ itself, and the proof
+uses the shifted form of Section~\ref{sec:intrinsic}: $\Gamma=1-t\zeta^2$ and
+$\chi=1-t^2\zeta^2$ with $\mu=0$. With the systems as given (the readings
+\texttt{Y} alone), only the four differences 1--3, 2--4, 2--6 and 4--6 are
+proved.
+
+\subsection{Four families}\label{sec:families}
+Three more families were treated in the same way. Together with the six systems
+above (family A) there are $27$ systems in four families, with one sum per family:
+\[
+  S_A=(-t^2;t)_\infty-1,\qquad S_B=(-t;t)_\infty-1-t,\qquad
+  S_C=t\,(-t;t)_\infty,\qquad S_D=t\,\bigl((-t;t)_\infty-1\bigr).
+\]
+In all of them $f=e_1$; the matrices $L$ are written row by row, as in the input
+of the implementation:
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}l@{\ \ }l@{\ \ }l@{\quad}l@{\ \ }l@{\ \ }l@{}}
+B1 & $[1,0,0;\;-tT,1-tT,-tY;\;-tY,-tY,1]$ & $(0,tY,0)$ & B2 & $[1,0,0;\;-tY,1-tY,-tY;\;-tT,-tT,1]$ & $(0,tY,0)$ \\
+B3 & $[1,0,0;\;-tY,1-tY,-tT;\;-tT,-tT,1]$ & $(0,tY,0)$ & B4 & $[1-tT,-tT,0;\;-tY,1,0;\;0,-tY,1]$ & $(0,tY,tY)$ \\
+B5 & $[1,0,0;\;-tT,1-tY,-tY;\;0,-tT,1]$ & $(0,tY,tY)$ & B6 & $[1,0,0;\;0,1,-tY;\;-tT,-tT,1-tT]$ & $(0,tY,tY)$ \\
+\addlinespace
+C1 & $[1-tY,-tY,0;\;0,1,-tY;\;-tT,-tT,1]$ & $(tY,0,0)$ & C2 & $[1-tY,0,-tY;\;-tT,1,-tT;\;0,-tT,1]$ & $(tY,0,0)$ \\
+C3 & $[1,0,0;\;-tT,1-tT,-tY;\;0,-tY,1]$ & $(tY,tY,0)$ & C4 & $[1,0,0;\;-tT,1-tY,-tY;\;0,-tT,1]$ & $(tY,tY,0)$ \\
+C5 & $[1,0,0;\;-tT,1-tY,-tT;\;0,-tT,1]$ & $(tY,tY,0)$ & C6 & $[1,0,-tY;\;-tY,1,0;\;-tT,0,1-tT]$ & $(tY,tY,0)$ \\
+C7 & $[1,0,0;\;-tY,1,-tY;\;-tT,-tY,1-tT]$ & $(tY,tY,0)$ & C8 & $[1,0,0;\;-tT,1,-tY;\;0,-tT,1-tT]$ & $(tY,tY,tY)$ \\
+\addlinespace
+D1 & $[1-tT,-tY;\;-tY,1]$ & $(0,tY)$ & D2 & $[1,-tT;\;-tT,1-tY]$ & $(0,tY)$ \\
+D3 & $[1,0,0;\;-tT,1-tT,-tY;\;0,-tY,1]$ & $(0,tY,0)$ & D4 & $[1,0,0;\;-tT,1-tY,-tY;\;0,-tT,1]$ & $(0,tY,0)$ \\
+D5 & $[1,0,-tY;\;-tY,1-tY,0;\;-tT,-tT,1]$ & $(0,tY,0)$ & D6 & $[1,0,-tT;\;-tY,1-tY,0;\;-tT,-tT,1]$ & $(0,tY,0)$ \\
+D7 & $[1,0,0;\;-tT,1,-tY;\;0,-tT,1-tT]$ & $(0,tY,tY)$ & && \\
+\end{tabular}
+\end{center}
+All $79$ differences within a family are proved:
+\begin{center}
+\begin{tabular}{@{}llccccc@{}}
+\toprule
+family & sum & systems & differences & zero test & rational & channels\\\midrule
+A & $(-t^2;t)_\infty-1$ & 6 & 15 & 1 & 9 & 5\\
+B & $(-t;t)_\infty-1-t$ & 6 & 15 & 1 & 6 & 8\\
+C & $t\,(-t;t)_\infty$ & 8 & 28 & 0 & 12 & 16\\
+D & $t\,((-t;t)_\infty-1)$ & 7 & 21 & 2 & 7 & 12\\\midrule
+all & & 27 & 79 & 4 & 34 & 41\\
+\bottomrule
+\end{tabular}
+\end{center}
+The $41$ channel proofs are product identities in the sense of
+Proposition~\ref{prop:forced-pole}. In the readings used, no annihilator of
+lower order than that of the system (order $3$) is found, the least pole at
+$T=0$ of a rational certificate has order~$2$, and $\beta_{2m}$ consists of two
+product channels that cancel through one dilation witness, $\chi=1-t^2\zeta^2$
+($38$ pairs) or $1-t^4\zeta^2$ ($3$), with $\lambda=2$ and offset $\mu=0$ ($33$)
+or $\mu=1$ ($8$); $20$ of them need a shifted form ($\Gamma\ne1$).
+In the other $38$, the readings found first, all of them \texttt{X} or
+\texttt{Y}, are equal series (zero test, $4$ pairs), differ by a nonzero
+polynomial ($2$ pairs, $A_C=1$), or differ by a series whose least annihilator
+has order~$1$ ($23$ pairs) or~$2$ ($9$ pairs); the annihilator of the system has
+order up to~$4$. Every rational certificate found is without pole at $T=0$. For
+B1--B3, for instance, the readings (\texttt{X},\,\texttt{Y}) differ by a
+$q$-hypergeometric series, the system gives an annihilator of order~$2$, and
+the certificate for $A_C$ is
+\[
+  R=\frac{t^3}{(t^2T^2+t-1)(T^2+t-1)},\qquad R(0)=\frac{t^3}{(t-1)^2}.
+\]
+A canonical reading occurs in one proof (A4--A5). With the systems as given,
+without other readings, $23$ of the $79$ differences are proved.
+
+\subsection{Lists of automata with a common growth series}\label{sec:automata}
+A larger test consists of $497$ lists of automata over two letters, with
+conjecturally the same growth series within each list. An automaton is given by
+its transitions $iVj$, from state $i$ to state $j$ reading $V\in\{R,U\}$, with
+initial state $0$ and final state $\infty$; for instance
+\texttt{[0R1 1R2 1U1 1U$\infty$ 2R1]} recognizes $R(U+R^2)^*U$. With $R=Y$ and $U=X$,
+an automaton stands for the sum of its accepted words, and its growth series is
+$S$ of that sum: the generating function of the words by the number of pairs
+$R\cdots U$ (Euler's odd series in the example). Every accepted word has the form
+$R\cdots U$, so the sum is $Y(\sum_ww)X$ over the inner words, realized as in
+Section~\ref{sec:euler} (\texttt{automaton} reads this notation). The lists
+contain $1116$ automata with two or three inner states, in $422$ pairs and $75$
+lists of three to eight; within each list the series agree up to $t^{40}$. That
+makes $813$ differences.
+
+All $813$ differences are proved directly (\texttt{automata\_quantumwz.jl}), with
+a time limit of $300$ seconds for the channel search:
+\begin{center}
+\begin{tabular}{@{}lr@{}}
+\toprule
+rational certificate without pole at $T=0$ & $728$\\
+zero test (two after aligning the readings by a factor $Y$) & $14$\\
+channel test, period $2$, $\lambda=2$ & $69$\\
+channel test, period $3$, $\lambda=3$ & $2$\\\midrule
+all & $813$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Most proofs use the readings (\texttt{X},\,\texttt{Y}) ($485$) or
+(\texttt{Y},\,\texttt{Y}) ($296$); canonical readings occur in five channel
+proofs. Of the $71$ channel proofs, $39$ need a shifted form $\theta_w$
+($\Gamma\ne1$), as for the boundary factor in Euler's identity of
+Section~\ref{sec:intrinsic}; the witnesses are $1-t^2\zeta^2$ ($66$),
+$1-t^4\zeta^2$ ($3$) and $1-t^3\zeta^3$ ($2$, with period $3$). The median time per
+difference is $0.2$ seconds; $11$ take more than ten seconds, the longest
+two and a half minutes, and all $813$ take $17$ minutes. Three changes to the method
+came from this data: the least annihilator is reconstructed from modular images
+(the direct solution over $K$ took minutes for systems of $20$ unknowns),
+stationary channels may differ by a boundary factor (the shifted forms
+$\theta_w$), and readings may differ by a power of $Y$ (the aligned
+combinations).
+
+\paragraph{A second set.} A second file has $49$ lists of $10$ to $19$ automata
+with two to four inner states: $579$ automata and $3237$ differences. Run with
+the remainder test of Section~\ref{sec:remainders} and a time limit of $150$
+seconds, all but $29$ differences are proved directly:
+\begin{center}
+\begin{tabular}{@{}lr@{}}
+\toprule
+rational certificate without pole at $T=0$ & $2726$\\
+zero test & $70$\\
+channel test, period $2$, $\lambda=2$ & $399$\\
+channel test with a remainder, period $2$, $\lambda=2$ & $13$\\
+not proved (Gauss's identity, below) & $29$\\\midrule
+all & $3237$\\
+\bottomrule
+\end{tabular}
+\end{center}
+The remainder test was added for this set. In the first list, automaton~$8$ is
+the sum side of Example~\ref{ex:sum-side}; its differences with numbers $7$ and
+$10$ were not proved before, and the list was certified only through the other
+differences. All $13$ differences of this kind, in four lists, are now proved,
+each with a fit of pole order~$1$ for one block, found for $p=1$ and restricted
+to a progression of period~$2$. Of the $412$ channel proofs, $273$ need a shifted form; the
+witnesses are $1-t^2\zeta^2$ ($401$) and $1-t^4\zeta^2$ ($11$). Most proofs use
+the readings (\texttt{Y},\,\texttt{Y}) ($2485$) or (\texttt{X},\,\texttt{Y})
+($548$); canonical readings occur in $10$. The median time of a proof is $0.1$
+seconds and the longest $28$ seconds; the proved differences take $44$ minutes
+in all, and the $29$ others $94$ minutes, until the time limit (one step of the
+search can overrun it by a few minutes). So $47$ of the $49$ lists are
+certified.
+
+\paragraph{Gauss's identity.} The $29$ unproved differences are those of
+automaton~$10$ of list~$34$, and of automata $6$ and $7$ of list~$42$, with the
+other members of their lists (the difference of $6$ and $7$ is proved, by the
+zero test). Automaton~$10$ of list~$34$ is
+\texttt{[0R1 1R2 1U3 1U$\infty$ 2R1 2U2 3R4 3U4 3U$\infty$ 4R3]}. Its words are
+$R\,w_1\cdots w_k\,U$ and $R\,w_1\cdots w_k\,U\,v_1\cdots v_l\,U$ with factors
+$w_i=RU^{a_i}R$ and $v_j\in\{UR,RR\}$. The letters $U$ of $w_i$ follow $2i$
+letters $R$, so the factors $w_i$ contribute $1/(t^2;t^2)_k$, and $N=2k+1$
+letters $R$ precede the next $U$. An ending with $u$ factors $UR$ and $r$ factors
+$RR$ has the total weight $t^{N(u+2)+u(u+1)/2+2r}\binom{u+r}{u}_{t^2}$. Summing
+over $r$, then over $k$ by $\sum_kz^k/(t^2;t^2)_k=1/(z;t^2)_\infty$,
+\[
+  S=\frac{t}{(t^2;t^2)_\infty}\Bigl(1+\sum_{u\ge0}t^{\binom{u+2}2}\Bigr)
+   =\frac{t\,\psi(t)}{(t^2;t^2)_\infty},\qquad \psi(t)=\sum_{v\ge0}t^{\binom{v+1}2},
+\]
+while the other members of the list have $S=t(-t;t)_\infty$. The same
+computation gives $S=\psi(t)/(t^2;t^2)_\infty-1$ for automaton~$6$ of list~$42$,
+\texttt{[0R1 1R2 1U3 1U$\infty$ 2R1 2U2 2U$\infty$ 3R4 4R3 4U3 4U$\infty$]}, whose
+list has $S=(-t;t)_\infty-1$. These equalities are Gauss's identity
+$\psi(t)=(t^2;t^2)_\infty/(t;t^2)_\infty$, a theta-function identity. None of
+the three automata has a reading in which $\beta$ is a sum of channels, exactly or
+up to a remainder, for $p\le2$: in reading \texttt{X}, the partial sums of
+automaton~$10$ have the $q$-hypergeometric constituents $1$ and $1/(t^4;t^2)_n$
+and a third part that is not a sum of channels, and the hypergeometric elements
+of their module give no fit (pole order up to $10$). So lists $34$ and $42$ are
+the two lists that the tests do not certify. This is a limitation of the
+certificate classes: they prove identities between products, and sum sides that
+a finite identity within the same module relates to a product (as in
+Example~\ref{ex:sum-side}), but not a theta series such as~$\psi$.
+
+\section{Implementation}\label{sec:implementation}
+\sloppy
+
+The accompanying module \texttt{QuantumWZ.jl} implements the route of
+Sections~\ref{sec:intrinsic}, \ref{sec:remainders} and~\ref{sec:readings}. Both algebras are
+\textsc{Oscar} PBW algebras \cite{OscarPBW} over $K=\Q(t)$: \texttt{A} with
+relation $YX=tXY$ and \texttt{O} with $TY=tYT$, with normal monomials $X^aY^b$
+and $Y^bT^a$ as in the paper. Operators stay PBW elements throughout and are read
+by a single function, \texttt{pbw\_terms}. A power series is stored as its
+vector of coefficients, and the action of $\Op$ is used only through the formula
+$[Y^k](cY^bT^a\cdot v)=c\,t^{a(k-b)}v_{k-b}$ (\texttt{ycoeff}). Recurrences live
+in $F=\Q(t,z)$, the fraction field of the Flint polynomial ring $\Q[t,z]$, where
+$z$ stands for $t^n$ (or for $T$); factorization over $K$ is factorization in
+$\Q[t,z]$. Linear algebra is plain Gauss--Jordan elimination on matrices of
+normalized fractions (\texttt{rref\_field}, \texttt{kernel\_field},
+\texttt{solve\_field}), over $K$ whenever the entries are free of $z$; on the
+annihilator systems it is faster than the generic fraction-free routines by two
+to three orders of magnitude.
+
+\begin{enumerate}
+\item \texttt{compile} produces $(L,f,d)$ by \eqref{eq:triple}, and
+  \texttt{difference} the block-diagonal system of $\Delta_1-\Delta_2$ from two
+  realizations or two compiled systems; \texttt{automaton} also reads the
+  notation of Section~\ref{sec:automata}. \texttt{attempt} splits the system
+  into \texttt{blocks} and runs the following steps (\texttt{cheap\_stages}) on
+  the system as given; if nothing is decided, it lists the \texttt{readings} of
+  each block (\texttt{transpose\_system}, \texttt{canonical}) and runs them on
+  every other combination, together with the aligned combinations of
+  Section~\ref{sec:search} (\texttt{aligned}).
+\item \texttt{solve\_series} and \texttt{marginal\_coeffs} give $c_0,\dots,c_N$
+  and $\beta_0,\dots,\beta_N$; $N$ is extended automatically when a proof needs
+  more terms. \texttt{nonzero\_witness} applies Proposition~\ref{prop:rate}(1).
+\item \texttt{annihilator} computes $H$ and $R$ with $Hd=RL$ over $K(T)$, of
+  least degree under a common degree bound, and checks the identity in
+  \texttt{O}. A block-diagonal system is done block by block, with $H$ a least
+  common left multiple of the block annihilators (\texttt{lclm}). If
+  $g=\eps(Rf)=0$, \texttt{exceptional\_set} and Proposition~\ref{prop:zero}
+  decide $C\equiv0$ (\texttt{:zero\_marginal}).
+\item \texttt{reduce\_annihilator} looks for a right factor $A$ of $H$ of lower
+  order with $A\cdot C=g_A$ a polynomial (Proposition~\ref{prop:factor}). The
+  coefficients of $A$, polynomials in $T$, are guessed from the $c_n$: the least
+  order and then the least degree are found on modular images ($t\mapsto T_0$ in
+  $\mathrm{GF}(2^{61}-1)$, \texttt{marginal\_mod}) with twice as many equations
+  as unknowns. The kernel, one-dimensional, has entries in $\Q(t)$ but is
+  computed from its images at further points $t\mapsto\tau$: each entry is
+  interpolated and rationally reconstructed in $t$, then its coefficients are
+  lifted to $\Q$ (\texttt{reconstruct\_kernel}); only for small systems is it
+  solved over $K$ directly, since the $c_n$ have large $t$-degree. The guess
+  is then proved by \texttt{check\_factor}: right division $H=QA$, the
+  identity $\widetilde QA=DH$ in \texttt{O}, $\widetilde Q\cdot g_A=D\cdot g$,
+  and the exceptional indices of $\widetilde Q$. The search is limited to $32$
+  unknowns; beyond it, or if the reconstruction fails, $A=H$.
+\item \texttt{rational\_certificate} solves \eqref{eq:scalar-cert} with $A$ in
+  place of $H$ for rational $R$: \texttt{universal\_denominator}, the pole bound at $0$ and the
+  degree bound, then the numerator by forward substitution in its coefficients
+  (\texttt{polynomial\_solution}: the coefficient of $z^{v+i}$ determines the
+  $i$-th unknown except where $\chi(t^i)=0$, so only those few free parameters
+  are found by linear algebra). Without a pole at $T=0$ it returns
+  \texttt{:rational}, or \texttt{:nonzero} with the exact value
+  $S(\Delta)=\kappa\ne0$. Inside \texttt{attempt} the search is skipped when the
+  cleared denominator has degree above~$120$. \texttt{polynomial\_certificate}
+  looks for a polynomial certificate of the system itself (\texttt{:polynomial}).
+\item For $p\le p_{\max}$, every combination and every residue,
+  \texttt{progression\_test}
+  \begin{itemize}
+  \item turns $A(1-Y)$ into \eqref{eq:beta-rec} (\texttt{beta\_recurrence}) and
+    its section \eqref{eq:section-rec} (\texttt{section\_recurrence});
+  \item finds the $q$-hypergeometric solutions (\texttt{qhyper}); a candidate is
+    rejected from the extreme coefficients of the $T_i$ alone, before any
+    polynomial is formed;
+  \item fixes the coefficients $a_i$ from $k$ values (\texttt{decompose},
+    Proposition~\ref{prop:decomp}) and merges similar channels
+    (\texttt{merge\_similar}, \texttt{similarity});
+  \item applies Proposition~\ref{prop:channels2} (\texttt{channel\_proof}), with
+    dilation witnesses for every admissible $\lambda$ and offsets $|\mu|\le6$
+    (\texttt{dilation\_witness}), for $\theta$ itself and for its shifted forms
+    $\theta_w$ (\texttt{shift\_forms}).
+  \end{itemize}
+  Success gives \texttt{:channels}, with the progression, the channels, the
+  witnesses and the bound $\val(\beta_{pm+r})\ge sm+\kappa$.
+\item For each period, once \texttt{progression\_test} has failed for every
+  combination, \texttt{remainder\_test} runs the test with remainders of
+  Section~\ref{sec:remainders}. Each block gets its own least annihilator and
+  $\beta$ recurrence (\texttt{block\_reading}); \texttt{block\_channels} writes
+  the section of its $\beta$ as channels, exactly or with a remainder
+  (\texttt{hyper\_elements}: \texttt{qhyper} on the adjoint and the
+  concomitant; \texttt{remainder\_fit}: the Laurent conditions;
+  \texttt{restrict}: a fit for $p=1$ along the progression). The channels of
+  all blocks are merged (\texttt{merge\_channels}) and passed to
+  \texttt{channel\_proof}. Block data are cached across combinations. Success
+  gives \texttt{:channels} with the field \texttt{remainders}: for each block,
+  \texttt{:none} or the pole order of its fit.
+\end{enumerate}
+Every result records the readings used. The result \texttt{:unknown} is not a
+disproof.
+
+\paragraph{Tests.} \texttt{test\_quantumwz.jl} checks:
+\begin{itemize}
+\item $X-Y$ (\texttt{:rational}, no denominator), the second system of
+  Example~\ref{ex:incomplete} (\texttt{:rational}, denominator $1+T^2$), and
+  $\Delta=1$ (\texttt{:nonzero} at $n=0$);
+\item Example~\ref{ex:incomplete} and Example~\ref{ex:two-realizations}
+  (\texttt{:zero\_marginal}), together with further pairs of equal series given
+  by different realizations (PBW, automata, a redundant automaton);
+\item Euler's identity for four pairs of realizations (PBW and PBW, automaton
+  and automaton, PBW and automaton, automaton and redundant automaton) and for
+  $-\Delta$. All give the proof of Section~\ref{sec:euler}: readings
+  (\texttt{Y},\,\texttt{Y}), period~$2$, a single dilation pair with $\lambda=2$
+  and $\chi=1-t^2z^2$, and $\val(\beta_{2m})\ge2m+2$;
+\item all fifteen differences of the six systems of Section~\ref{sec:six}, the
+  readings and witness of the pair 4--5, the false identity ``distinct parts
+  $\ge2$ versus distinct parts $\ge1$'' (\texttt{:nonzero}), and one difference
+  entered with integer entries, as in $L=[-t*T+1\ \ -t*T;\ -t*Y\ \ 1]$;
+\item the least annihilator: B1--B3 of Section~\ref{sec:families}
+  (\texttt{:rational} without pole, with $A$ of order~$1$ where the system gives
+  order~$2$), and C3--C5, whose readings differ by a polynomial ($A=1$);
+\item automata in the notation of Section~\ref{sec:automata}: Euler's identity,
+  a product identity that needs a shifted form ($\Gamma\ne1$), and a pair
+  proved after aligning the readings by a factor~$Y$;
+\item the sum side of Example~\ref{ex:sum-side}: the two hypergeometric elements,
+  the fit with a pole of order~$1$, and the difference of numbers $7$ and $8$,
+  proved with a remainder for number~$8$ only;
+\item Glaisher's identity for $k=3$ (parts not divisible by $3$ versus parts
+  used at most twice), with both sides given by automata: period~$3$ and a
+  dilation witness with $\lambda=3$; and a false identity (parts not divisible by
+  $3$ versus distinct parts), which ends with \texttt{:nonzero}.
+\end{itemize}
+\texttt{families\_quantumwz.jl} runs all $79$ differences of the four families of
+Section~\ref{sec:families}, and \texttt{automata\_quantumwz.jl} all differences
+within each list of a file in the notation of Section~\ref{sec:automata}; it
+also reports whether the proved differences connect every list. \texttt{stress\_quantumwz.jl} draws random automata over
+$\{X,Y\}$ and runs \texttt{attempt} on differences whose answer is known: two
+unrelated automata (a proof would be wrong whenever $S\ne0$ is certain from
+$\beta_N$), and an automaton against its transpose, against itself with a state
+split in two, and against the transpose of its canonical realization ($S=0$ by
+construction; a refutation would be wrong).
+
+\paragraph{Limitations.} Channels must have ratios in $K$ (roots of the
+coefficient equations are sought in $\Q(t)$), the degree of $C$ in
+\texttt{qhyper} is capped at~$64$, periods are tried up to $p_{\max}$, offsets
+up to $|\mu|\le6$, shifted forms over four windows, and stationary channels
+must cancel in pairs through a dilation witness. The enumeration of candidates
+in \texttt{qhyper} is
+exponential in the number of irreducible factors of $q_0$ and $q_k$; above
+$50\,000$ candidates it is skipped. A failing search tries every combination of
+readings for every period, so \texttt{:unknown} can take long; the keyword
+\texttt{time\_limit} of \texttt{attempt} bounds the channel search (it is
+checked between progressions, and inside \texttt{qhyper} and
+\texttt{section\_recurrence}). A fit has pole order at most~$6$, and its
+elements come only from $q$-hypergeometric solutions of the adjoint with ratios
+in $K$. The least
+annihilator is guessed within the bounds of step~4 (at most $32$ unknown
+coefficients, entries reconstructed from at most $512$ evaluation points, and
+rational coefficients of height about $2^{30}$, lifted from one prime), so a
+reduction of high order or degree is missed. All these bounds affect only
+completeness: a skipped search never produces a verdict, and a guessed
+annihilator is used only after it is proved.
+
+\paragraph{Status.} The module was run with Julia~1.12.7, Nemo~0.56.1 and
+AbstractAlgebra~0.50.4. The $53$ tests pass in about five minutes, most of it
+for Glaisher's identity and the sum side. The $79$ differences of
+Section~\ref{sec:families} take three and a half minutes in all, the $813$ of the
+first set of Section~\ref{sec:automata} $17$ minutes, and the $3237$ of the
+second set $138$ minutes on one core, $94$ of them for the $29$ that are not
+proved. Three runs of \texttt{stress\_quantumwz.jl} with $40$ random cases
+each (automata with $2$ to $4$ states) gave no wrong verdict and no exception:
+of the $120$ random differences, $113$ were refuted and $7$ proved (equal
+marginals), and all $310$ identities were proved, by the zero test or by a
+rational certificate without pole, the slowest in $27$ seconds.
+\textsc{Oscar} itself could not be installed where this version was prepared.
+There, its two-generator PBW algebras were replaced by a small stand-in with
+the same interface: normal-ordered terms through \texttt{coefficients} and
+\texttt{exponent\_vectors}, the relation $g_2g_1=t\,g_1g_2$, and scalars
+accepted only from $K$ or~$\mathbb Z$. An exact reference implementation in
+Python, on Flint, was used to cross-check the series, annihilator and channel
+stages.
+
+\fussy
+\section{The decision question}\label{sec:decision}
+Four assertions should be kept apart.
+\begin{enumerate}
+\item The formal boundary always lies in $\Bhol$ with an effective description
+  (Theorem~\ref{thm:holonomic}).
+\item Whether the marginal vanishes identically, $C\equiv0$, is decidable
+  (Proposition~\ref{prop:zero-exists}). This settles the comparison of
+  realizations, but $S(\Delta)=0$ is weaker than $C\equiv0$.
+\item Existence of rational certificates, with or without a pole at $T=0$, is
+  decidable (Theorem~\ref{thm:decidable}); those of the form $b=P\cdot C$
+  correspond to the rational solutions of~\eqref{eq:scalar-cert} for the least
+  annihilator of $C$, which the implementation guesses and then proves
+  (Proposition~\ref{prop:factor}). Without a pole they are complete
+  proofs, but they are not necessary for $S(\Delta)=0$: for identities between
+  infinite products every certificate has a pole at $T=0$
+  (Proposition~\ref{prop:forced-pole}).
+\item Proposed convergence certificates (contraction, channels) are checkable by
+  finite exact computation, and enumerating them is a semi-decision
+  procedure for $S(\Delta)=0$ \emph{within} those classes. The test of
+  Section~\ref{sec:intrinsic} depends only on the sequence $\beta$, and with the
+  readings of Section~\ref{sec:readings} it may use the partial sums of any
+  reading of each block. It succeeds whenever, for some combination of
+  readings, the marginal vanishes or some section of $\beta$ is a sum of
+  $q$-hypergeometric terms with ratios in $K$ whose stationary parts cancel in
+  pairs through dilation witnesses (within the search bounds); with the
+  remainders of Section~\ref{sec:remainders}, it suffices that the partial sums
+  of each block are such a sum up to a regular combination of themselves that
+  tends to $0$. Completeness beyond this class is not established; the theta
+  series of Section~\ref{sec:automata} lies outside it.
+\end{enumerate}
+A complete, effectively checkable certificate language for convergence would
+decide $S(\Delta)=0$: enumerate certificates while computing coefficients of
+$S(\Delta)$ until either a certificate verifies or a nonzero coefficient
+appears. Equivalently, the problem is decidable iff there is a computable
+$N(\Delta)$ such that $t^{N(\Delta)}\mid S(\Delta)$ implies $S(\Delta)=0$.
+Neither decidability nor undecidability is established here.
+
+\appendix
+\section{Holonomic series do not form a field}\label{app:not-field}
+Let $E(Y)=\prod_{j\ge1}(1-t^jY)\in\Bhat\cap K[[Y]]$. Then $E(tY)=E(Y)/(1-tY)$,
+$E(0)=1$, and $(1-t^n)[Y^n]E=-t^n[Y^{n-1}]E$, so the coefficients lie in $K$.
+Put $g=1+E\in\Bhol\cap\Bhat$; indeed $\bigl((T-t)((1-tY)T-1)\bigr)\cdot g=0$.
+Since $g\equiv2\pmod t$, $g^{-1}\in\Bhat$.
+
+\emph{$E$ is transcendental over $K(Y)$.} Otherwise $K(Y,E)$ is a finite
+extension of degree $r\ge1$ stable under $\sigma=T$, since
+$\sigma(E)=E/(1-tY)$ and $\sigma^{-1}(E)=(1-Y)E$. The norm
+$a=N_{K(Y,E)/K(Y)}(E)\in K(Y)^\times$ then satisfies
+$a(tY)/a(Y)=(1-tY)^{-r}$. The left side has equal numerator and denominator
+degree, the right side does not: a contradiction.
+
+\emph{$g^{-1}$ is not holonomic.} With $P_n=\prod_{j=1}^n(1-t^jY)$ we have
+$T^n\cdot g^{-1}=P_n/(P_n+E)$. As rational functions of the transcendental
+$E$ over $K(Y)$ these have pairwise distinct simple poles $E=-P_n$, hence are
+linearly independent over $K(Y)$. Thus
+\[
+  g\in\Bhol\cap\Bhat,\qquad g^{-1}\in(\Fhol\cap\Bhat)\setminus\Bhol.
+\]
+
+\begin{thebibliography}{10}
+\bibitem{GL} S.~Garoufalidis and T.~T.~Q.~L\^e,
+\emph{A survey of $q$-holonomic functions}, Enseign. Math. 62 (2016), 501--525.
+\href{https://arxiv.org/abs/1601.07487}{arXiv:1601.07487}.
+\bibitem{Middeke} J.~Middeke,
+\emph{Denominator bounds and polynomial solutions for systems of $q$-recurrences
+over $K(t)$ for constant $K$}, ISSAC 2017.
+\href{https://arxiv.org/abs/1705.04188}{arXiv:1705.04188}.
+\bibitem{DLMF} NIST Digital Library of Mathematical Functions,
+\emph{Integer partitions: other restrictions}, \S26.10.
+\href{https://dlmf.nist.gov/26.10}{dlmf.nist.gov/26.10}.
+\bibitem{Abramov} S.~A.~Abramov, \emph{Rational solutions of linear difference
+and $q$-difference equations with polynomial coefficients}, Proc.\ ISSAC'95, ACM,
+1995, 285--289.
+\bibitem{APP} S.~A.~Abramov, P.~Paule and M.~Petkov\v{s}ek,
+\emph{$q$-Hypergeometric solutions of $q$-difference equations},
+Discrete Math.\ 180 (1998), 3--22.
+\bibitem{PWZ} M.~Petkov\v{s}ek, H.~S.~Wilf and D.~Zeilberger, \emph{A=B},
+A K Peters, 1996.
+\bibitem{OscarPBW} OSCAR documentation, \emph{Creating PBW-Algebras},
+\url{https://docs.oscar-system.org/stable/NoncommutativeAlgebra/PBWAlgebras/creation/}.
+\bibitem{OscarSolve} OSCAR documentation, \emph{Solving Linear Systems},
+\url{https://docs.oscar-system.org/stable/AbstractAlgebra/how_to_linear_solve/}.
+\end{thebibliography}
+\end{document}

@@ -31,12 +31,12 @@ const flipRU = StdVectorFst(0,[(0,0,:R,:U),(0,0,:U,:R)],[0],alphabet)
 export charpoly, degrees, series2pochhammer, growthseries
 
 """The characteristic polynomial of the transition matrix of t"""
-function charpoly(t::Automaton{N}, R = PolynomialRing(ZZ,"x")[1]) where {N}
+function charpoly(t::Automaton{N}, R = polynomial_ring(ZZ,"x")[1]) where {N}
     m = zeros(Int,N,N)
     for i=1:N, s=1:2
         t.x[i,s]≠0 && (m[i,t.x[i,s]] += 1)
     end
-    charpoly(R,MatrixSpace(ZZ,MatrixSpace(R,N,N)(m)))
+    charpoly(R,matrix_space(ZZ,N,N)(m))
 end
 
 """The degrees of the irreducible factors of the characteristic polynomial of t"""
@@ -151,7 +151,7 @@ function quantumseries(t::Automaton{N}; order = 1:N) where N
             (j-1∈order[1:i] || k-1∈order[1:i]) && continue
             global stash
             stash = (mat[j,k],mat[j,si],loopi,mat[si,k])
-            @info "(j,k)=($j,$k); computing $(mat[j,k]) += $(mat[j,si])*$loopi*$(mat[si,k])..."
+#            @info "(j,k)=($j,$k); computing $(mat[j,k]) += $(mat[j,si])*$loopi*$(mat[si,k])..."
             mat[j,k] += simplify(mat[j,si] * loopi * mat[si,k])
         end
     end
@@ -175,7 +175,7 @@ export cluster, examine
 
 """Combine results of runs of scan"""
 function cluster(scanresult::Vector{Pair{A,B}}) where {A,B}
-    sort!(scanresult,lt=(x,y)->x.second<y.second)
+    sort!(scanresult,by=x->x.second)
     c = Pair{Vector{A},B}[]
     for (a,b)=scanresult
         if isempty(c) || c[end].second≠b
@@ -193,14 +193,20 @@ function examine(row)
         display(g)
     end
     println(row.second)
-    html = String(HTTP.request("GET",string(URI(URI("https://oeis.org/search"); query=Dict("q"=>join(row.second |> string))))))
-    htmlbuf = IOBuffer(html)
+    html = HTTP.request("GET",string(URI(URI("https://oeis.org/search"); query=Dict("q"=>join(row.second |> string)))))
+    htmlbuf = IOBuffer(html.body)
     mdbuf = IOBuffer()
-    run(pipeline(`pandoc --from html --to markdown`, stdin=htmlbuf, stdout=mdbuf))
+    run(pipeline(`pandoc --from html --to markdown_strict`, stdin=htmlbuf, stdout=mdbuf))
     seekstart(mdbuf)
     md = readlines(mdbuf)
-    start = 1; while start < length(md) && match(r"^\[A.*\]\(/A.*\)$",md[start])==nothing start += 1 end
-    display("text/markdown", join(md[start:end],"\n"))
+    if any(s->match(r"Sorry, but the terms do not match anything in the table.",s)≠nothing,md)
+        md = "😭 No match in OEIS 😭"
+    else
+        start = 1; while start < length(md) && match(r"^\[A.*\]\(/A.*\)$",md[start])==nothing start += 1 end
+        md = join(md[start:end],"\n")
+        md = replace(md,"](/" => "](https://oeis.org/")
+    end
+    display("text/markdown", md)
 end
 
 """

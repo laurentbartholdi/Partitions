@@ -2,13 +2,14 @@ module QuantumPlane
 
 using Oscar, DataStructures, Test
 
-const run_tests = true
+const run_tests = false
 
 export Polynomial, Fraction, 𝕢, R, U, simplify, series
 
 const ℚ𝕢, 𝕢 = rational_function_field(QQ,:𝕢)
 const Scalar = typeof(𝕢)
-const 𝔸, (U, R) = let (A, (U, R)) = ℚ𝕢["U","R"]
+
+const 𝔸, (U, R) = let (A, (U, R)) = ℚ𝕢[:U,:R]
     pbw_algebra(A, strictly_upper_triangular_matrix([𝕢*U*R]), deglex(A))
 end
 const Polynomial = typeof(U)
@@ -317,7 +318,7 @@ otherside(side::Symbol) = side==:left ? :right : :left
 function ore_syzygy(x,y,side::Symbol = :left,O = nothing)
     a = [one(x) zero(x); zero(x) one(x)]
     while !iszero(y)
-        @info "ore_syzygy" x,y
+#        @info "ore_syzygy" x,y
         (quotient, remainder, scale) = divrem(x,y,otherside(side),O)
         if iszero(quotient) # we're not making progress with free O
             O = :U
@@ -458,8 +459,7 @@ for (side,oside)=[(:(:left),:(:right)),(:(:right),:(:left))]
     @eval Base.hash(f::Fraction{$side}) = hash(f.den,hash(f.num))
 
     @eval function simplify_scalars(f::Fraction{$side})
-        l = lcm(denominator(f.den),denominator(f.num))//gcd(numerator_gcd(f.den),numerator_gcd(f.num)) |> Scalar
-        l.parent = ℚ𝕢
+        l = lcm(denominator(f.den),denominator(f.num))//gcd(numerator_gcd(f.den),numerator_gcd(f.num)) |> ℚ𝕢
         Fraction{$side}(f.den*l,f.num*l)
     end
 

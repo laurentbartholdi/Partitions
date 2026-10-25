@@ -1,16 +1,18 @@
 module Partitions
 
-__precompile__(false)
+__precompile__(false) # because we define constants using Oscar constructs
 
 #using Debugger
 
 include("qplane.jl"); using .QuantumPlane
 
-using Nauty, Distributed
+using NautyTraces, Distributed
 
 include("automata.jl")
 
-using GraphViz, URIs, HTTP, OpenFST, LLLplus
+include("qwz.jl")
+
+using Graphs, GraphViz, URIs, HTTP, OpenFST, LLLplus
 
 include("tools.jl")
 
@@ -34,5 +36,8 @@ end
 
 #q2 = quantumseries(kr2,order=[6,7,8,10,11,14,4,5,9,12,13,1,2,3])
 
-
+#Nandi modulo 14: https://arxiv.org/abs/1910.12461
+#Rogers-Ramanujan modulo 5:
+#Kanade-Russell modulo 9:
+#The Unproven Takigiku–Tsuchioka Level 4 Conjectures
 end
