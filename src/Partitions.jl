@@ -1,3 +1,11 @@
+"""
+    Partitions
+
+Partition languages, their series in the quantum plane, and holonomic certificates of
+partition identities, accompanying L. Bartholdi, "Automatic partition identities".
+See README.md for the correspondence with the paper, and `paper/` for the scripts that
+reproduce its computations.
+"""
 module Partitions
 
 __precompile__(false) # because we define constants using Oscar constructs

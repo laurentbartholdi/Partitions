@@ -118,7 +118,12 @@ growthseries(t::Automaton, area) = [1; reverse!(growthseries_helper(t, area, zer
 """
 ;
 
-"""Compute the power series, up to q^area, of the growth of the automaton t"""
+"""
+    growthseries(t::Automaton, area)
+
+The coefficients of q^0, …, q^area of ε(H) (paper, §1): the number of accepted boundary words,
+i.e. partitions, of each size; the empty partition is counted, so the first entry is 1.
+"""
 function growthseries(t::Automaton, area::Integer,
                       ::Type{T}=Int) where {T<:Integer}
     area >= 0 || throw(ArgumentError("area must be nonnegative"))
@@ -149,6 +154,70 @@ function growthseries(t::Automaton, area::Integer,
     return counts
 end
 
+"""
+    spec(t::Automaton)
+
+The automaton `t` in the notation of `QuantumWZ.automaton` and of the batch driver
+`quantum-wz/automata_quantumwz.jl`: \"0R1 1R2 1U1 1U∞ …\", with 0 initial and ∞ final.
+"""
+spec(t::Automaton) = String(strip(sprint(show, t), ['[', ']']))
+
+parsespec(s::AbstractString) = [Tuple(match(r"^(\d+|∞)([RU])(\d+|∞)$", e).captures) for e in split(s)]
+
+"""
+    pathseries(s::AbstractString, area)
+
+The coefficients of q^0, …, q^area of ε(H) for the path series H of the automaton `s`, in the
+notation of `spec` (paper, §3.1): accepting paths are counted with multiplicity, so `s` may be
+weighted (parallel arcs) or nondeterministic. The empty word is not counted. For an `Automaton`
+`t`, `pathseries(spec(t), n)[2:end] == growthseries(t, n)[2:end]`.
+"""
+function pathseries(s::AbstractString, area::Integer)
+    edges = parsespec(s)
+    states = unique([x for (i, _, j) in edges for x in (i, j) if x ∉ ("0", "∞")])
+    idx = Dict(x => k for (k, x) in enumerate(states))
+    N = area
+    f = zeros(BigInt, length(states), N + 1, N + 1)   # f[state, height, area + 1]: number of paths
+    out = zeros(BigInt, N + 1)
+    for (i, v, j) in edges
+        i == "0" || continue
+        (v == "R" && j != "∞") || error("initial transitions must read R: $i$v$j")
+        N ≥ 1 && (f[idx[j], 1, 1] += 1)
+    end
+    for h in 1:N, a in 0:N, (i, v, j) in edges     # a letter U adds the height h to the area
+        i ∈ ("0", "∞") && continue
+        c = f[idx[i], h, a + 1]
+        iszero(c) && continue
+        if v == "R"
+            h < N && j != "∞" && (f[idx[j], h + 1, a + 1] += c)
+        elseif a + h ≤ N
+            j == "∞" ? (out[a + h + 1] += c) : (f[idx[j], h, a + h + 1] += c)
+        end
+    end
+    out
+end
+
+"""
+    npaths(s::AbstractString, w::AbstractString)
+
+The number of accepting paths of the word `w` (over the letters R, U) in the automaton `s`
+(notation of `spec`).
+"""
+function npaths(s::AbstractString, w::AbstractString)
+    edges = parsespec(s)
+    cur = Dict("0" => 1)
+    for (k, a) in enumerate(w)
+        nxt = Dict{String,Int}()
+        for (i, v, j) in edges, (st, c) in cur
+            if i == st && v == string(a) && (j != "∞" || k == length(w))
+                nxt[j] = get(nxt, j, 0) + c
+            end
+        end
+        cur = nxt
+    end
+    get(cur, "∞", 0)
+end
+
 ################################################################
 
 #export R, U, 𝕢, quantumseries, Polynomial, Fraction, RFraction, LFraction, simplify, cancel
@@ -164,7 +233,12 @@ const LFraction = QuantumPlane.Fraction{:left}
 const simplify = QuantumPlane.simplify
 #const 𝕢 = QuantumPlane.𝕢
 
-"""Compute the rational expression in R,U expressing the automaton t."""
+"""
+    quantumseries(t::Automaton{N}; order = 1:N)
+
+The path series of `t` as a rational expression in the quantum plane 𝔸 (paper, §1 and §3.1),
+by elimination of the states in the given order.
+"""
 function quantumseries(t::Automaton{N}; order = 1:N) where N
     sort(order)==1:N || error("$order does not contain all states 1:$N")
 
@@ -205,7 +279,14 @@ end
 
 export cluster, examine
 
-"""Combine results of runs of scan"""
+"""
+    cluster(results)
+
+Group pairs `automaton => series` (from `allautomata(n; area)` or `scan`) by series:
+returns pairs `[automata...] => series`, sorted by series. Each list with several automata
+is a family of conjectural partition identities; printing `first` of a pair gives a line
+`Automaton[[0R1 …], …]` for the batch driver `quantum-wz/automata_quantumwz.jl`.
+"""
 function cluster(scanresult::Vector{Pair{A,B}}) where {A,B}
     sort!(scanresult,by=x->x.second)
     c = Pair{Vector{A},B}[]

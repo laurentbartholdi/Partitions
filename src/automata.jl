@@ -237,8 +237,19 @@ function parallel_scan(N,workers = nworkers(), area = 30)
     vcat(fetch.(refs)...)
 end
 
+"""
+    allautomata(n; partial = true, multi_initial = false, area = nothing)
+
+All interior automata with at most `n` states, one minimal deterministic automaton per
+language, as enumerated by `exhaustivautomata/dfa` (build it with `make -C exhaustivautomata`).
+With `area`, each automaton is paired with its `growthseries` up to `q^area`; `cluster` then
+groups the automata by series (paper, §3.8 and §4.6). For `n = 4` and `5` there are 222354
+and 14614080 automata.
+"""
 function allautomata(n; partial = true, multi_initial = false, area = nothing, countmodulus = 100000)
-    stream = open(`$(@__DIR__)/../exhaustivautomata/dfa $n $(partial ? "--partial" : []) $(multi_initial ? "--multi-initial" : [])`)
+    dfa = joinpath(@__DIR__, "..", "exhaustivautomata", "dfa")
+    isfile(dfa) || error("$dfa not found: build it with `make -C $(dirname(dfa))`")
+    stream = open(`$dfa $n $(partial ? "--partial" : []) $(multi_initial ? "--multi-initial" : [])`)
     getstate(c) = c-'0'+1
     getletter(c) = c-'a'+1
     v = area == nothing ? Automaton[] : Pair{Automaton,Vector{Int}}[]

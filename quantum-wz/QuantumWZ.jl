@@ -1,8 +1,18 @@
 """
     QuantumWZ
 
-Sums of quantum-rational functions, following the paper "Quantum-rational sums
-and holonomic boundary certificates" (section names below refer to it).
+Sums of quantum-rational functions, accompanying L. Bartholdi, "Automatic partition
+identities" (section names in quotes below refer to an earlier draft, "Quantum-rational sums
+and holonomic boundary certificates").
+
+# Notation: paper ↔ code
+    q ↔ t,   U ↔ X,   R ↔ Y (Yo in O),   Υ ↔ T,   𝒪 ↔ O,   Φ(U^i R^j) = R^j Υ^i ↔ Φ(X^a Y^b) = Y^b T^a.
+`compile` gives the marginal system (L, f, d) of eq. (9); `solve_series` and
+`marginal_coeffs` give the coefficients c_n of C, whose partial sums are the b_n of eq. (11);
+`nonzero_witness` is the disproof of Theorem A(3) (Lemma 3.5); `exceptional_set` is the set
+E_Ω of Lemma 3.4; `rational_certificate` and `polynomial_certificate` are the operator
+witnesses of Appendix A; `progression_test` writes the b_n along arithmetic progressions as
+sums of first-order series (Proposition 3.7), cancelled by `dilation_witness` (eq. (16)).
 
 # Algebras and fields
 Oscar PBW algebras over K = Q(t):

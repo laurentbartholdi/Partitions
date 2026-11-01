@@ -1,1 +1,13 @@
 *~
+# environment-specific; regenerate with Pkg.instantiate()
+Manifest.toml
+# build products of the enumerator (make -C exhaustivautomata)
+exhaustivautomata/dfa
+exhaustivautomata/dfa.dot
+exhaustivautomata/dfa.eps
+exhaustivautomata/dfa.pdf
+*.o
+*.d
+__pycache__/
+# output of paper/enumeration.jl
+paper/families*.txt
