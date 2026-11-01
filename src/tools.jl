@@ -29,14 +29,15 @@ const flipRU = StdVectorFst(0,[(0,0,:R,:U),(0,0,:U,:R)],[0],alphabet)
 ################################################################
 
 export charpoly, degrees, series2pochhammer, growthseries
+import Oscar
 
 """The characteristic polynomial of the transition matrix of t"""
-function charpoly(t::Automaton{N}, R = polynomial_ring(ZZ,"x")[1]) where {N}
+function charpoly(t::Automaton{N}, R = Oscar.polynomial_ring(ZZ,"x")[1]) where {N}
     m = zeros(Int,N,N)
     for i=1:N, s=1:2
         t.x[i,s]≠0 && (m[i,t.x[i,s]] += 1)
     end
-    charpoly(R,matrix_space(ZZ,N,N)(m))
+    Oscar.charpoly(R,matrix_space(ZZ,N,N)(m))
 end
 
 """The degrees of the irreducible factors of the characteristic polynomial of t"""
@@ -100,7 +101,7 @@ end
 """Convert a power series into a product of Pochhammer symbols"""
 series2pochhammer(s) = series2product(s) |> product2pochhammer
 
-function growthseries_helper(t::Automaton{N}, area, counts, x, state) where {N}
+"""function growthseries_helper(t::Automaton{N}, area, counts, x, state) where {N}
     area ≥ x || return counts
     if t.x[state,1]≠0
         growthseries_helper(t, area, counts, x+1, t.x[state,1])
@@ -113,9 +114,40 @@ function growthseries_helper(t::Automaton{N}, area, counts, x, state) where {N}
     end
     counts
 end
+growthseries(t::Automaton, area) = [1; reverse!(growthseries_helper(t, area, zeros(Int,area), 1, 1))...]
+"""
+;
 
 """Compute the power series, up to q^area, of the growth of the automaton t"""
-growthseries(t::Automaton, area) = [1; reverse!(growthseries_helper(t, area, zeros(Int,area), 1, 1))...]
+function growthseries(t::Automaton, area::Integer,
+                      ::Type{T}=Int) where {T<:Integer}
+    area >= 0 || throw(ArgumentError("area must be nonnegative"))
+    N = size(t.x, 1)
+    f = zeros(T, N, area)
+    g = zeros(T, N, area)
+
+    @inbounds for x in area:-1:1
+        for s in 1:N
+            f[s, x] = t.x[s, 3] != 0 ? one(T) : zero(T)
+        end
+        for n in (x + 1):area, s in 1:N
+            r, u = t.x[s, 1], t.x[s, 2]
+            c = r == 0 ? zero(T) : g[r, n]
+            if u != 0 && n >= 2*x
+                c += f[u, n - x]
+            end
+            f[s, n] = c
+        end
+        f, g = g, f
+    end
+
+    counts = Vector{T}(undef, area + 1)
+    counts[1] = one(T)
+    @inbounds for n in 1:area
+        counts[n + 1] = g[1, n]
+    end
+    return counts
+end
 
 ################################################################
 

@@ -35,7 +35,7 @@ function add_arc!(t::Automaton{N}, i, j, s) where {N}
     t.x[i,s]==0 || return false
     t.x[i,s] = j
 
-    add_edge!(t.g,i+(s-1)*N,j+(s-1)*N)
+    Graphs.add_edge!(t.g,i+(s-1)*N,j+(s-1)*N)
 
     s==2==LASTGEN && add_arc!(t, i, i, 3)
 
@@ -47,7 +47,7 @@ function rem_arc!(t::Automaton{N}, i, j, s) where {N}
 
     s==2==LASTGEN && rem_arc!(t, i, i, 3)
     
-    rem_edge!(t.g,i+(s-1)*N,j+(s-1)*N)
+    Graphs.rem_edge!(t.g,i+(s-1)*N,j+(s-1)*N)
 end
 
 function Base.show(io::IO, m::MIME"image/svg+xml", t::Automaton{N}) where {N}
@@ -84,8 +84,8 @@ Convert a table to a graph, for canonization by Nauty
 function graph(t::Automaton{N}) where {N}
     g = DenseNautyDiGraph(3N)
     for i=1:N
-        add_edge!(g,i,i+N)
-        add_edge!(g,i+N,i+2N)
+        Graphs.add_edge!(g,i,i+N)
+        Graphs.add_edge!(g,i+N,i+2N)
         for s=1:3
             t.x[i,s]≠0 && add_edge!(g,i+(s-1)*N,t.x[i,s]+(s-1)*N)
         end
@@ -198,7 +198,7 @@ function scan(x::Automaton{N},sd::ScanData = ScanData(30),candidates::Vector{Pai
 
     for i=1:N, j=1:N, s=1:LASTGEN # add an edge from i to j labeled s
         s==3 && i≠j && continue # color 3 is just accepting
-        add_arc!(x,i,j,s) || continue
+        Graphs.add_arc!(x,i,j,s) || continue
 
         lab, orbits, canong = let bundle = NautyTraces._nauty(x.g, nautyopt, partition(x))
             bundle.lab, bundle.orbits, bundle.canong
@@ -237,12 +237,13 @@ function parallel_scan(N,workers = nworkers(), area = 30)
     vcat(fetch.(refs)...)
 end
 
-function allautomata(n; partial = true, multi_initial = false, area = nothing)
+function allautomata(n; partial = true, multi_initial = false, area = nothing, countmodulus = 100000)
     stream = open(`$(@__DIR__)/../exhaustivautomata/dfa $n $(partial ? "--partial" : []) $(multi_initial ? "--multi-initial" : [])`)
     getstate(c) = c-'0'+1
     getletter(c) = c-'a'+1
     v = area == nothing ? Automaton[] : Pair{Automaton,Vector{Int}}[]
-    
+
+    count = 0
     while true
         s = readline(stream)
         isempty(s) && return v
@@ -259,6 +260,10 @@ function allautomata(n; partial = true, multi_initial = false, area = nothing)
             end
         end
         push!(v,area == nothing ? a : a => growthseries(a,area))
+        count += 1
+        if count%countmodulus == 0
+            @info "$count automata read..."
+        end
     end
 end
 
