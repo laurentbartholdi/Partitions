@@ -69,7 +69,7 @@ module QuantumWZ
 
 using Oscar
 
-export setup, compile, attempt, automaton, automata, difference, transpose_system, readings, euler, x_minus_y, delta_one, incomplete
+export setup, compile, attempt, automaton, automata, difference, transpose_system, readings, euler, x_minus_y, delta_one
 
 const INF = typemax(Int) ÷ 4   # valuation of 0
 

@@ -1,6 +1,6 @@
 name = "Partitions"
 uuid = "f88c29a2-6684-4fd4-80f5-0a189f6497e7"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Laurent Bartholdi <laurent.bartholdi@gmail.com>"]
 
 [deps]
@@ -17,7 +17,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
 
 [sources]
-OpenFST = {rev = "master", url = "https://github.com/laurentbartholdi/OpenFST.jl"}
+OpenFST = {rev = "0.1.3", url = "https://github.com/laurentbartholdi/OpenFST.jl"}
 
 [compat]
 Distributed = "1.11.0"

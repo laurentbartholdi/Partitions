@@ -198,7 +198,7 @@ function scan(x::Automaton{N},sd::ScanData = ScanData(30),candidates::Vector{Pai
 
     for i=1:N, j=1:N, s=1:LASTGEN # add an edge from i to j labeled s
         s==3 && i≠j && continue # color 3 is just accepting
-        Graphs.add_arc!(x,i,j,s) || continue
+        add_arc!(x,i,j,s) || continue
 
         lab, orbits, canong = let bundle = NautyTraces._nauty(x.g, nautyopt, partition(x))
             bundle.lab, bundle.orbits, bundle.canong
