@@ -270,6 +270,7 @@ function allautomata(n; partial = true, multi_initial = false, area = nothing, c
                 a.x[getstate(s[i][1]),getletter(s[i][2])] = getstate(s[i][3])
             end
         end
+        a.g = graph(a)
         push!(v,area == nothing ? a : a => growthseries(a,area))
         count += 1
         if count%countmodulus == 0

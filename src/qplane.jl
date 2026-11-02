@@ -476,9 +476,9 @@ Base.:(==)(f::Fraction{:left},g::Polynomial) = f.den*g == f.num
 Base.:(==)(f::Fraction{:right},g::Polynomial) = g*f.den == f.num
 Base.:(==)(f::Polynomial,g::Fraction) = g == f
 
-Base.:/(f::Fraction{:right},g::Polynomial) = Fraction{:right}(f.den*g,f.num)
+Base.:/(f::Fraction{:right},g::Polynomial) = Fraction{:right}(g*f.den,f.num)
 Base.:/(f::Polynomial,g::Fraction{:right}) = Fraction{:right}(g.num,f*g.den)
-Base.:\(f::Polynomial,g::Fraction{:left}) = Fraction{:left}(f*g.den,g.num)
+Base.:\(f::Polynomial,g::Fraction{:left}) = Fraction{:left}(g.den*f,g.num)
 Base.:\(f::Fraction{:left},g::Polynomial) = Fraction{:left}(f.num,f.den*g)
 
 Base.:*(f::Fraction{:left},g::Polynomial) = Fraction{:left}(f.den,f.num*g)

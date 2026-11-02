@@ -2150,10 +2150,4 @@ x_minus_y(ctx) = compile(ctx, fill(one(ctx.A), 1, 1), [one(ctx.A)], [ctx.X - ctx
 "Δ = 1: S(Δ) = 1 ≠ 0."
 delta_one(ctx) = compile(ctx, fill(one(ctx.A), 1, 1), [one(ctx.A)], [one(ctx.A)])
 
-"Δ = (1−t)(1−tX)^(-1)(X−1): C = 0, so S(Δ) = 0, but there is no boundary certificate."
-function incomplete(ctx)
-  (; t, A, X) = ctx
-  return compile(ctx, fill(one(A) - A(t) * X, 1, 1), [A(1 - t)], [X - one(A)])
-end
-
 end # module

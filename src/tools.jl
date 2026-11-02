@@ -55,10 +55,24 @@ end
 a product ∏_{i≥1} (1+t^i)^p[i]"""
 function series2product(s::Vector)
     s = copy(s)
+    @assert s[1]==1
     p = Int[]
     for i=1:length(s)-1
-        push!(p,s[i+1])
-        s[i+1:end] -= s[i+1]*s[1:end-i]
+        c = s[i+1]
+        push!(p,c)
+        if c>0
+            for _=1:c # divide c times by 1+t^i
+                for j=i+1:length(s)
+                    s[j] -= s[j-i]
+                end
+            end
+        elseif c<0
+            for _=1:-c # multiply c times by 1+t^i
+                for j=length(s):-1:i+1
+                    s[j] += s[j-i]
+                end
+            end
+        end
     end
     p
 end
